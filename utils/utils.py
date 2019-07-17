@@ -75,23 +75,6 @@ def scale_coords(img1_shape, coords, img0_shape):
     return coords
 
 
-def wh_iou(box1, box2):
-    # Returns the IoU of wh1 to wh2. wh1 is 2, wh2 is nx2
-    box2 = box2.t()
-
-    # w, h = box1
-    w1, h1 = box1[0], box1[1]
-    w2, h2 = box2[0], box2[1]
-
-    # Intersection area
-    inter_area = np.min(w1, w2) * np.min(h1, h2)
-
-    # Union Area
-    union_area = (w1 * h1 + 1e-16) + w2 * h2 - inter_area
-
-    return inter_area / union_area  # iou
-
-
 def load_image_paths(path):
     img_formats = ['.jpg', '.jpeg', '.png', '.tif']
 
