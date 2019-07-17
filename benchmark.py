@@ -1,7 +1,7 @@
 import shutil
 from pathlib import Path
 
-from benchmark_framework.sample_data import SampleData, Label, Prediction
+from data_structures import SampleData, Label, Prediction
 from utils.fake_generator import generate_fake_preds
 from utils.utils import *
 

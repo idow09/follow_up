@@ -1,6 +1,6 @@
 import numpy as np
 
-from benchmark_framework.sample_data import Prediction
+from data_structures import Prediction
 
 CHANCE_FOR_RANDOM_PREDICTION = 0.03
 

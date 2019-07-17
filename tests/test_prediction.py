@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from benchmark_framework.sample_data import Prediction, Label
+from data_structures import Prediction, Label
 
 
 class TestPrediction(TestCase):
