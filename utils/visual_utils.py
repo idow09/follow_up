@@ -7,6 +7,7 @@ import cv2
 from utils.utils import load_image_paths
 
 NEUTRAL = (255, 0, 0)
+RED = (0, 0, 255)
 
 
 def put_label(img, xyr, label, color=None, line_thickness=None):
@@ -38,6 +39,25 @@ def crop_around_ball(img, xyr):
     return img[y - half_h:y + half_h, x - half_w:x + half_w]
 
 
+def crop_around_aoi(sample, img):
+    if len(sample.labels) == 0:
+        return img
+    xs = []
+    ys = []
+    for lbl in sample.labels:
+        xs.append(lbl.x)
+        ys.append(lbl.y)
+    for prd in sample.preds:
+        xs.append(prd.x)
+        ys.append(prd.y)
+    # TODO: improve this +/- 70 randomness!
+    x1 = max(min(xs) - 70, 0)
+    y1 = max(min(ys) - 70, 0)
+    x2 = min(max(xs) + 70, img.shape[1])
+    y2 = min(max(ys) + 70, img.shape[0])
+    return img[y1:y2, x1:x2]
+
+
 def create_visualization(image_path, label_path, visualization_path, color=NEUTRAL, has_score=False, crop=False):
     image = cv2.imread(image_path)
     xyr = None
@@ -67,3 +87,16 @@ def create_visualizations(images_root, labels_root, visualizations_root, color=N
         create_visualization(image_path, label_path, visualization_path, color=color, has_score=has_score)
         print('%i/%i Done.' % (i + 1, n_i))
     print('Done All. (%.3fs)' % (time.time() - t))
+
+
+def create_sample_visualization(sample, iou_th, color_true, color_false, crop=False, color_mode='bgr'):
+    image = cv2.imread(sample.path)
+    for prd in sample.preds:
+        xyr = prd.x, prd.y, prd.r
+        sc = prd.score
+        color = color_true if prd.iou > iou_th else color_false
+        plot_ball(image, xyr, color=color)
+        put_label(image, xyr, str(sc), color=color)
+
+    image = crop_around_aoi(sample, image)
+    return cv2.cvtColor(image, cv2.COLOR_BGR2RGB) if color_mode == 'rgb' else image
