@@ -2,7 +2,7 @@ import shutil
 from pathlib import Path
 
 from benchmark_framework.sample_data import SampleData, Label, Prediction
-from benchmark_framework.benchmark_utils import generate_fake_preds
+from utils.fake_generator import generate_fake_preds
 from utils.utils import *
 
 IOU_THRESHOLD = 0.5
