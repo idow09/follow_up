@@ -3,7 +3,7 @@ import shutil
 import time
 from pathlib import Path
 
-from benchmark_framework.visual_utils import plot_ball
+from utils.visual_utils import plot_ball
 from utils.utils import *
 
 YELLOW_LOWER_HUE = 20
