@@ -1,0 +1,6 @@
+# pip3 install -U -r requirements.txt
+# conda install numpy opencv matplotlib mpld3
+numpy
+opencv-python
+matplotlib
+mpld3
