@@ -83,11 +83,8 @@ class Benchmark:
         self.calc_hist()
 
     def calc_hist(self):
-        self.center_dist_list = []
-        for sample in self.sample_list:
-            for pred in sample.preds:
-                if pred.center_dist is not None:
-                    self.center_dist_list.append(pred.center_dist)
+        dists = [pred.center_dist for sample in self.sample_list for pred in sample.preds]
+        self.center_dist_list = list(filter(lambda dist: dist is not None, dists))
 
     def calc_roc(self, thresholds=None):
         if thresholds is None:
