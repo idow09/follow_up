@@ -69,7 +69,7 @@ def create_visualization(image_path, label_path, visualization_path, color=NEUTR
         plot_ball(image, xyr, color=color)
         if has_score:
             sc = label[3]
-            put_label(image, xyr, str(sc), color=color)
+            put_label(image, xyr, '%.2f' % float(sc), color=color)
     if xyr is not None and len(lines) == 1 and crop:  # crop if exactly one label
         image = crop_around_ball(image, xyr)
 
@@ -96,7 +96,7 @@ def create_sample_visualization(sample, iou_th, color_true, color_false, crop=Fa
         sc = prd.score
         color = color_true if prd.iou > iou_th else color_false
         plot_ball(image, xyr, color=color)
-        put_label(image, xyr, str(sc), color=color)
+        put_label(image, xyr, '%.2f' % sc, color=color)
 
     image = crop_around_aoi(sample, image)
     return cv2.cvtColor(image, cv2.COLOR_BGR2RGB) if color_mode == 'rgb' else image
