@@ -12,7 +12,7 @@ RED = (0, 0, 255)
 
 def put_label(img, xyr, label, color=None, line_thickness=None):
     tl = line_thickness or round(0.002 * max(img.shape[0:2])) + 1  # line thickness
-    tl = tl / 6
+    tl = tl / 8
     color = color or [random.randint(0, 255) for _ in range(3)]
     tf = max(tl - 1, 1)  # font thickness
     t_size = cv2.getTextSize(label, 0, fontScale=tl, thickness=tf)[0]
@@ -89,13 +89,16 @@ def create_visualizations(images_root, labels_root, visualizations_root, color=N
     print('Done All. (%.3fs)' % (time.time() - t))
 
 
-def create_sample_visualization(sample, iou_th, color_true, color_false, crop=False, color_mode='bgr'):
+def create_sample_visualization(sample, iou_th, color_true, color_false, color_label, crop=False, color_mode='bgr'):
     image = cv2.imread(sample.path)
+    for lbl in sample.labels:
+        xyr = lbl.x, lbl.y, lbl.r
+        plot_ball(image, xyr, color=color_label, line_thickness=2)
     for prd in sample.preds:
         xyr = prd.x, prd.y, prd.r
         sc = prd.score
         color = color_true if prd.iou > iou_th else color_false
-        plot_ball(image, xyr, color=color)
+        plot_ball(image, xyr, color=color, line_thickness=2)
         put_label(image, xyr, '%.2f' % sc, color=color)
 
     image = crop_around_aoi(sample, image) if crop else image
