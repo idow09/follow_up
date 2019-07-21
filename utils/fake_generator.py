@@ -30,7 +30,6 @@ def _generate_fake_pred(label):
     x, y, r = label.x, label.y, label.r
     dx, dy, dr = np.random.normal(0, r / 2), np.random.normal(0, r / 2), np.random.normal(0, r / 10)
     x, y, r = int(x + dx), int(y + dy), r + dr
-    # sc = generate_random_probability()
     sc = np.exp(-(dx ** 2 + dy ** 2 + dr ** 2) / 150)
     return x, y, r, sc
 

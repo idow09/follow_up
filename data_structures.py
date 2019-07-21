@@ -22,7 +22,6 @@ class Prediction:
         self.y = y
         self.r = r
         self.score = score
-        # TODO: Correct usage? init with None?
         self.matched_label = None
         self.iou = None
         self.center_dist = None

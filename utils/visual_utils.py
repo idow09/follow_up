@@ -98,5 +98,5 @@ def create_sample_visualization(sample, iou_th, color_true, color_false, crop=Fa
         plot_ball(image, xyr, color=color)
         put_label(image, xyr, '%.2f' % sc, color=color)
 
-    image = crop_around_aoi(sample, image)
+    image = crop_around_aoi(sample, image) if crop else image
     return cv2.cvtColor(image, cv2.COLOR_BGR2RGB) if color_mode == 'rgb' else image
