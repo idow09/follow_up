@@ -104,3 +104,13 @@ class Benchmark:
             p = sum(th2samples_precision_list[th]) / len(th2samples_precision_list[th])
             r = sum(th2samples_recall_list[th]) / len(th2samples_recall_list[th])
             self.roc[th] = {'precision': p, 'recall': r}
+
+    @staticmethod
+    def has_labels(sample):
+        return len(sample.labels) >= 1
+
+    def filter_samples(self, cond=None, num_samples=9):
+        if cond is None:
+            cond = self.has_labels
+        relevant_samples = list(filter(cond, self.sample_list))
+        return np.random.choice(relevant_samples, num_samples, replace=False)
