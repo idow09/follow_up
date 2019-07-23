@@ -83,7 +83,7 @@ def create_visualizations(images_root, labels_root, visualizations_root, color=N
     color = color or (0, 0, 255) if has_score else NEUTRAL
     for i, image_path in enumerate(image_paths):
         visualization_path = str(Path(visualizations_root) / Path(image_path).name)
-        label_path = str(Path(labels_root) / Path(image_path).name) + '.txt'
+        label_path = str(Path(labels_root) / Path(image_path).name).replace('.jpg', '.txt')
         create_visualization(image_path, label_path, visualization_path, color=color, has_score=has_score)
         print('%i/%i Done.' % (i + 1, n_i))
     print('Done All. (%.3fs)' % (time.time() - t))

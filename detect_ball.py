@@ -76,7 +76,7 @@ def detect_ball(source, output, visualize, leave_trace=True):
                 if len(pts) > 0:
                     cv2.polylines(img, [pts], isClosed=False, color=(255, 0, 0), thickness=2)
             cv2.imwrite(save_path, img)
-        with open(save_path + '.txt', 'a') as file:
+        with open(save_path.replace('.jpg', '.txt'), 'a') as file:
             # file.write('%g\n' % t)
             if sc != 0:
                 file.write(('%g ' * 3 + '\n') % xyr)
