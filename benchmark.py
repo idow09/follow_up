@@ -113,7 +113,7 @@ class Benchmark:
     def low_recall(sample):
         return sample.stats[0]['recall'] < 1
 
-    def filter_samples(self, cond=None, num_samples=9):
+    def choose_samples(self, cond=None, num_samples=9):
         if cond is None:
             cond = self.has_labels
         relevant_samples = list(filter(cond, self.sample_list))
