@@ -113,8 +113,6 @@ class Benchmark:
     def low_recall(sample):
         return sample.stats[0]['recall'] < 1
 
-    def choose_samples(self, cond=None, num_samples=9):
-        if cond is None:
-            cond = self.has_labels
+    def choose_samples(self, cond=lambda s: True, num_samples=9):
         relevant_samples = list(filter(cond, self.sample_list))
         return np.random.choice(relevant_samples, num_samples, replace=False)
