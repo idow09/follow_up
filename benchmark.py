@@ -19,14 +19,13 @@ def parse_labels(labels_path):
 
 def parse_preds(preds_path, labels):
     preds = []
-    time = None
     with open(preds_path, 'r') as pred_f:
+        time = float(pred_f.readline())
         for line in pred_f.readlines():
             log = [float(x) for x in line.split()]
             pred = Prediction(int(log[0]), int(log[1]), log[2], log[3])
             pred.match_label(labels)
             preds.append(pred)
-            time = log[4]
     return preds, time
 
 

@@ -38,7 +38,8 @@ def generate_fake_preds(preds_path, labels, persist=False):
     preds = []
     time = np.random.exponential(0.3)
     if persist:
-        open(preds_path, 'a').close()
+        with open(preds_path, 'a') as file:
+            file.write('%g\n' % time)
 
     for label in labels:
         pred_num_for_label = np.random.choice(NUM_PREDS_LIST, p=NUM_PREDS_PROBS)
@@ -46,7 +47,7 @@ def generate_fake_preds(preds_path, labels, persist=False):
             x, y, r, sc = _generate_fake_pred(label)
             if persist:
                 with open(preds_path, 'a') as pred_f:
-                    pred_f.write(('%g ' * 5 + '\n') % (x, y, r, sc, time))
+                    pred_f.write(('%g ' * 4 + '\n') % (x, y, r, sc))
             pred = Prediction(x, y, r, sc)
             pred.match_label(labels)
             preds.append(pred)

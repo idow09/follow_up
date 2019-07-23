@@ -62,7 +62,7 @@ def detect_ball(source, output, visualize, leave_trace=True):
         tic = time.time()
         img = cv2.imread(path)
         xyxy, sc = predict_ball_location(img)
-        toc = time.time()
+        t = time.time() - tic
 
         xyr = xyxy2xyr(*xyxy)
         if visualize:
@@ -77,9 +77,10 @@ def detect_ball(source, output, visualize, leave_trace=True):
                     cv2.polylines(img, [pts], isClosed=False, color=(255, 0, 0), thickness=2)
             cv2.imwrite(save_path, img)
         with open(save_path + '.txt', 'a') as file:
+            # file.write('%g\n' % t)
             if sc != 0:
-                file.write(('%g ' * 5 + '\n') % (*xyr, sc, toc - tic))
-        print('%i/%i Done. (%.3fs)' % (i + 1, n_i, (toc - tic)))
+                file.write(('%g ' * 3 + '\n') % xyr)
+        print('%i/%i Done. (%.3fs)' % (i + 1, n_i, t))
     print('Done All. (%.3fs)' % (time.time() - tot))
 
 
