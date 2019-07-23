@@ -109,6 +109,10 @@ class Benchmark:
     def has_labels(sample):
         return len(sample.labels) >= 1
 
+    @staticmethod
+    def low_recall(sample):
+        return sample.stats[0]['recall'] < 1
+
     def filter_samples(self, cond=None, num_samples=9):
         if cond is None:
             cond = self.has_labels
