@@ -76,6 +76,8 @@ class Benchmark:
         for image_path in image_paths:
             sample_data = self.parse_sample_results(image_path, labels_root, preds_root)
             self.sample_list.append(sample_data)
+        if len(self.sample_list) < 1:
+            print('WARNING! No samples were found during parsing.')
 
     def calc_stats(self, thresholds=None):
         self.calc_roc(thresholds=thresholds)
