@@ -75,14 +75,18 @@ def scale_coords(img1_shape, coords, img0_shape):
     return coords
 
 
-def load_image_paths(path):
+def load_image_paths(path_or_txt):
     img_formats = ['.jpg', '.jpeg', '.png', '.tif']
 
     files = []
-    if os.path.isdir(path):
-        files = sorted(glob.glob('%s/*.*' % path))
-    elif os.path.isfile(path):
-        files = [path]
+    if os.path.isdir(path_or_txt):
+        files = sorted(glob.glob('%s/*.*' % path_or_txt))
+    elif os.path.isfile(path_or_txt):
+        if path_or_txt.endswith('.txt'):
+            with open(path_or_txt, 'r') as file:
+                files = sorted(map(str.strip, file.readlines()))
+        else:
+            files = [path_or_txt]
 
     return [x for x in files if os.path.splitext(x)[-1].lower() in img_formats]
 

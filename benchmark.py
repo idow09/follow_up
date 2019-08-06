@@ -66,13 +66,13 @@ class Benchmark:
             preds, time = parse_preds(preds_path, labels)
         return SampleData(image_path, labels, preds, time, self.scale, self.algo_id)
 
-    def parse_experiment_results(self, images_root, labels_root, preds_root):
+    def parse_experiment_results(self, images_source, labels_root, preds_root):
         if self.fake and self.persist:
             if os.path.exists(preds_root):
                 shutil.rmtree(preds_root)
             os.makedirs(preds_root)
 
-        image_paths = load_image_paths(images_root)
+        image_paths = load_image_paths(images_source)
         for image_path in image_paths:
             sample_data = self.parse_sample_results(image_path, labels_root, preds_root)
             self.sample_list.append(sample_data)
@@ -112,12 +112,32 @@ class Benchmark:
         return len(sample.labels) >= 1
 
     @staticmethod
+    def no_preds(sample):
+        return len(sample.preds) < 1 and Benchmark.has_labels(sample)
+
+    @staticmethod
     def low_recall(sample):
         return sample.stats[0]['recall'] < 1
 
     @staticmethod
-    def no_preds(sample):
-        return len(sample.preds) < 1 and Benchmark.has_labels(sample)
+    def high_recall(sample):
+        return sample.stats[0]['recall'] > 0.9
+
+    @staticmethod
+    def high_precision(sample):
+        return sample.stats[0]['precision'] > 0.9
+
+    @staticmethod
+    def high_stats(sample):
+        return Benchmark.high_recall(sample) and \
+               Benchmark.high_precision(sample) and \
+               Benchmark.has_labels(sample)
 
     def choose_samples(self, num_samples=9, cond=lambda s: True):
-        return np.random.choice(list(filter(cond, self.sample_list)), num_samples, replace=False)
+        candidates = list(filter(cond, self.sample_list))
+        if len(candidates) < num_samples:
+            return candidates
+        return np.random.choice(candidates, num_samples, replace=False)
+
+    def count_samples(self, cond=lambda s: True):
+        return len(list(filter(cond, self.sample_list)))
