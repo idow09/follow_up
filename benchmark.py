@@ -62,8 +62,8 @@ class Benchmark:
         self.fake = fake
         self.persist = persist
 
-    def parse_sample_results(self, image_path, gts_root, preds_root):
-        labels_path = str(Path(gts_root) / Path(image_path).name).replace('.jpg', '.txt')
+    def parse_sample_results(self, image_path, labels_root, preds_root):
+        labels_path = str(Path(labels_root) / Path(image_path).name).replace('.jpg', '.txt')
         preds_path = str(Path(preds_root) / Path(image_path).name).replace('.jpg', '.txt')
         labels = parse_labels(labels_path)
         if self.fake:
