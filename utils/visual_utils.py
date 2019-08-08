@@ -1,3 +1,4 @@
+import os
 import random
 import time
 from pathlib import Path
@@ -59,11 +60,17 @@ def crop_around_aoi(sample, img):
 
 
 def create_visualization(image_path, label_path, visualization_path, color=NEUTRAL, has_score=False, crop=False):
+    """
+    DEPRECATED:
+    creates visualization based on raw label files, and not per sample.
+    """
     image = cv2.imread(image_path)
     xyr = None
     with open(label_path, 'r') as labels_f:
         lines = labels_f.readlines()
-    for line in lines:
+    for i, line in enumerate(lines):
+        if i == 0:
+            continue
         label = line.split()
         xyr = int(label[0]), int(label[1]), float(label[2])
         plot_ball(image, xyr, color=color)
@@ -77,7 +84,12 @@ def create_visualization(image_path, label_path, visualization_path, color=NEUTR
 
 
 def create_visualizations(images_root, labels_root, visualizations_root, color=None, has_score=False):
+    """
+    DEPRECATED:
+    creates visualization based on raw label files, and not per sample.
+    """
     t = time.time()
+    os.makedirs(visualizations_root, exist_ok=True)
     image_paths = load_image_paths(images_root)
     n_i = len(image_paths)
     color = color or (0, 0, 255) if has_score else NEUTRAL
