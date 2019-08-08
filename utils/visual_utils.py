@@ -26,6 +26,13 @@ def put_label(img, xyr, label, color=None, line_thickness=None):
 
 
 def plot_ball(img, xyr, color=None, line_thickness=None):
+    """
+    Plots a ball in the given coordinates with the given color and line thickness
+    :param img: The image to plot on
+    :param xyr: A tuple containing coordinates of a ball (x, y, r)
+    :param color: The desired color
+    :param line_thickness: line thickness
+    """
     tl = line_thickness or round(0.002 * max(img.shape[0:2])) + 1  # line thickness
     color = color or [random.randint(0, 255) for _ in range(3)]
     c = (xyr[0], xyr[1])
@@ -35,12 +42,21 @@ def plot_ball(img, xyr, color=None, line_thickness=None):
 
 
 def crop_around_ball(img, xyr):
+    """
+    DEPRECATED
+    """
     x, y, r = xyr[0], xyr[1], xyr[2]
     half_w = half_h = int(4 * r)
     return img[y - half_h:y + half_h, x - half_w:x + half_w]
 
 
-def crop_around_aoi(sample, img):
+def crop_around_aoi(img, sample):
+    """
+    Crops around area of interest
+    :param img: The image to crop.
+    :param sample: SampleData that contains the labels & predictions data for aoi calculation
+    :return: The cropped image
+    """
     if len(sample.labels) == 0:
         return img
     xs = []
@@ -62,7 +78,7 @@ def crop_around_aoi(sample, img):
 def create_visualization(image_path, label_path, visualization_path, color=NEUTRAL, has_score=False, crop=False):
     """
     DEPRECATED:
-    creates visualization based on raw label files, and not per sample.
+    creates visualization based on raw label/prediction files, and not per (parsed) sample.
     """
     image = cv2.imread(image_path)
     xyr = None
@@ -86,7 +102,7 @@ def create_visualization(image_path, label_path, visualization_path, color=NEUTR
 def create_visualizations(images_root, labels_root, visualizations_root, color=None, has_score=False):
     """
     DEPRECATED:
-    creates visualization based on raw label files, and not per sample.
+    creates visualization based on raw label/prediction files, and not per (parsed) sample.
     """
     t = time.time()
     os.makedirs(visualizations_root, exist_ok=True)
@@ -102,6 +118,19 @@ def create_visualizations(images_root, labels_root, visualizations_root, color=N
 
 
 def create_sample_visualization(sample, iou_th, color_true, color_false, color_label, crop=False, color_mode='bgr'):
+    """
+    Creates an image with labels and predictions plotted on it.
+    Predictions are colored differently according to their iou
+    Crops the image around the area of interest if crop=True.
+    :param sample: The SampleData containing the image path, the labels and the predictions
+    :param iou_th: The IoU threshold which predictions are colored relative to.
+    :param color_true: The color for predictions with IoU above the threshold.
+    :param color_false: The color for predictions with IoU under the threshold.
+    :param color_label: The color for labels.
+    :param crop: Whether to crop the image around the area of interest.
+    :param color_mode: The requested color mode for the returned image. 'rgb' or 'bgr'
+    :return: An image in :color_mode color space, with labels and predictions plotted on it. Cropped if requested.
+    """
     image = cv2.imread(sample.path)
     for lbl in sample.labels:
         xyr = lbl.x, lbl.y, lbl.r
@@ -113,5 +142,5 @@ def create_sample_visualization(sample, iou_th, color_true, color_false, color_l
         plot_ball(image, xyr, color=color, line_thickness=2)
         put_label(image, xyr, '%.2f' % sc, color=color)
 
-    image = crop_around_aoi(sample, image) if crop else image
+    image = crop_around_aoi(image, sample) if crop else image
     return cv2.cvtColor(image, cv2.COLOR_BGR2RGB) if color_mode == 'rgb' else image
