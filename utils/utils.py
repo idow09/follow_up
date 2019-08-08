@@ -76,6 +76,11 @@ def scale_coords(img1_shape, coords, img0_shape):
 
 
 def load_image_paths(path_or_txt):
+    """
+    Loads a list of image paths from a given resource
+    :param path_or_txt: A path to an image, a directory containing images, or to a txt file containing image paths.
+    :return: A list of image paths.
+    """
     img_formats = ['.jpg', '.jpeg', '.png', '.tif']
 
     files = []
@@ -91,8 +96,11 @@ def load_image_paths(path_or_txt):
     return [x for x in files if os.path.splitext(x)[-1].lower() in img_formats]
 
 
-# Annotate a class @auto_str to have it pretty-printed whenever you str() it
 def auto_str(cls):
+    """
+    Annotate a class @auto_str to have it pretty-printed whenever you str() it
+    """
+
     def __str__(self):
         return '%s(%s)' % (
             type(self).__name__,
