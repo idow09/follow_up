@@ -47,6 +47,12 @@ def calc_sample_precision_recall(sample, thresholds):
 
 class Benchmark:
     def __init__(self, algo_id, scale=None, fake=False, persist=False):
+        """
+        :param algo_id: only for documentation purposes
+        :param scale: only for documentation purposes
+        :param fake: no longer relevant, ignore
+        :param persist: no longer relevant, ignore
+        """
         self.sample_list = []
         self.algo_id = algo_id
         self.scale = scale
@@ -67,6 +73,11 @@ class Benchmark:
         return SampleData(image_path, labels, preds, time, self.scale, self.algo_id)
 
     def parse_experiment_results(self, images_source, labels_root, preds_root):
+        """
+        :param images_source: images root directory OR txt file containing paths
+        :param labels_root: labels root directory
+        :param preds_root: results (preds) root directory
+        """
         if self.fake and self.persist:
             if os.path.exists(preds_root):
                 shutil.rmtree(preds_root)
