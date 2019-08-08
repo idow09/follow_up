@@ -5,6 +5,10 @@ from utils.utils import *
 
 @auto_str
 class SampleData:
+    """
+    A class to bundle all data for a single image (image_path, labels, predictions, stats, etc.)
+    """
+
     def __init__(self, path, labels, preds, time, scale, algo_id):
         self.path = path
         self.labels = labels
@@ -17,6 +21,10 @@ class SampleData:
 
 @auto_str
 class Prediction:
+    """
+    Contains coordinates as well as score, a (calculated) matched label, and some stats.
+    """
+
     def __init__(self, x, y, r, score):
         self.x = x
         self.y = y
@@ -27,6 +35,9 @@ class Prediction:
         self.center_dist = None
 
     def calc_rect_iou(self, label):
+        """
+        Prefer :calc_circle_iou
+        """
         box_a = [self.x - self.r, self.y - self.r, self.x + self.r, self.y + self.r]
         box_b = [label.x - label.r, label.y - label.r, label.x + label.r, label.y + label.r]
         # determine the (x, y)-coordinates of the intersection rectangle
@@ -70,6 +81,11 @@ class Prediction:
         self.center_dist = np.linalg.norm(a - b)
 
     def match_label(self, labels):
+        """
+        Match the prediction with the most probable (highest IoU) label from the given list.
+        If None found, no matched_label will be stored.
+        :param labels: The pool of labels to match with.
+        """
         match_iou = 0
         match = None
         for label in labels:
@@ -84,6 +100,10 @@ class Prediction:
 
 @auto_str
 class Label:
+    """
+    A class to bundle the coordinates for a label (x, y, r)
+    """
+
     def __init__(self, x, y, r):
         self.x = x
         self.y = y
