@@ -12,6 +12,14 @@ RED = (0, 0, 255)
 
 
 def put_label(img, xyr, label, color=None, line_thickness=None):
+    """
+    Puts a label above a given ball (circle) in an image.
+    :param img: The image to put label on
+    :param xyr: A tuple containing coordinates of a circle (x, y, r)
+    :param label: The text to put above the given ball (circle)
+    :param color: The color for the label
+    :param line_thickness: line thickness
+    """
     tl = line_thickness or round(0.002 * max(img.shape[0:2])) + 1  # line thickness
     tl = tl / 8
     color = color or [random.randint(0, 255) for _ in range(3)]

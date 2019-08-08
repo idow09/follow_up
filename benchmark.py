@@ -9,6 +9,12 @@ IOU_THRESHOLD = 0.5
 
 
 def parse_labels(labels_path):
+    """
+    Returns a list of Label objects parsed from a given txt file
+    :param labels_path: The path to the txt file that contains labels in the (x, y, r) format.
+    The labels are line separated and the coordinates are space separated.
+    :return: A list of Label objects parsed from the given file.
+    """
     labels = []
     with open(labels_path, 'r') as gt_f:
         for line in gt_f.readlines():
@@ -18,6 +24,14 @@ def parse_labels(labels_path):
 
 
 def parse_preds(preds_path, labels):
+    """
+    Returns a list of Prediction objects parsed from a given txt file, and matched with a corresponding label.
+    :param preds_path: The path to the txt file that contains predictions in the (x, y, r) format.
+    The predictions are line separated and the coordinates are space separated.
+    :param labels: A list of labels to match with.
+    :return: A list of Prediction objects parsed from the given file, each matched with a single Label object from the
+    labels list (or with None if not found).
+    """
     preds = []
     with open(preds_path, 'r') as pred_f:
         time = float(pred_f.readline())
@@ -30,6 +44,12 @@ def parse_preds(preds_path, labels):
 
 
 def calc_sample_precision_recall(sample, thresholds):
+    """
+    Calculates precision & recall for a single SampleData (single image) for all given thresholds.
+    Stores the results in a dict: sample.stats
+    :param sample: The sample to calculate stats for.
+    :param thresholds: A list of thresholds (in [0, 1]) to calculate stats for.
+    """
     for th in thresholds:
         matched_labels = []
         tot_pos = 0
@@ -48,10 +68,10 @@ def calc_sample_precision_recall(sample, thresholds):
 class Benchmark:
     def __init__(self, algo_id, scale=None, fake=False, persist=False):
         """
-        :param algo_id: only for documentation purposes
-        :param scale: only for documentation purposes
-        :param fake: no longer relevant, ignore
-        :param persist: no longer relevant, ignore
+        :param algo_id: Only for documentation purposes
+        :param scale: Only for documentation purposes
+        :param fake: ~IRRELEVANT~ If true, the Benchmark produces fake results to test.
+        :param persist: ~IRRELEVANT~ If true, the Benchmark saves the fake results to a directory
         """
         self.sample_list = []
         self.algo_id = algo_id
@@ -63,6 +83,13 @@ class Benchmark:
         self.persist = persist
 
     def parse_sample_results(self, image_path, labels_root, preds_root):
+        """
+        Parse a single sample data into a SampleData, given its image path and the roots of labels & predictions.
+        :param image_path: The path to the image.
+        :param labels_root: The path to the labels directory.
+        :param preds_root: The path to the predictions directory.
+        :return: A SampleData for the image, containing parsed labels and predictions.
+        """
         labels_path = str(Path(labels_root) / Path(image_path).name).replace('.jpg', '.txt')
         preds_path = str(Path(preds_root) / Path(image_path).name).replace('.jpg', '.txt')
         labels = parse_labels(labels_path)
@@ -74,9 +101,9 @@ class Benchmark:
 
     def parse_experiment_results(self, images_source, labels_root, preds_root):
         """
-        :param images_source: images root directory OR txt file containing paths
-        :param labels_root: labels root directory
-        :param preds_root: results (preds) root directory
+        :param images_source: Images root directory OR txt file containing paths
+        :param labels_root: Labels root directory
+        :param preds_root: Results (preds) root directory
         """
         if self.fake and self.persist:
             if os.path.exists(preds_root):
@@ -91,14 +118,25 @@ class Benchmark:
             print('WARNING! No samples were found during parsing.')
 
     def calc_stats(self, thresholds=None):
+        """
+        Calculates the ROC for the given thresholds, and a histogram of center-distances.
+        :param thresholds: A list of thresholds (in [0, 1]) to calculate stats for.
+        """
         self.calc_roc(thresholds=thresholds)
         self.calc_hist()
 
     def calc_hist(self):
+        """
+        Calculates a histogram of center-distances.
+        """
         dists = [pred.center_dist for sample in self.sample_list for pred in sample.preds]
         self.center_dist_list = list(filter(lambda dist: dist is not None, dists))
 
     def calc_roc(self, thresholds=None):
+        """
+        Calculates the ROC for the given thresholds
+        :param thresholds: A list of thresholds (in [0, 1]) to calculate stats for.
+        """
         if thresholds is None:
             thresholds = np.linspace(0, 1, 11)
         self.roc = {}
@@ -145,10 +183,21 @@ class Benchmark:
                Benchmark.has_labels(sample)
 
     def choose_samples(self, num_samples=9, cond=lambda s: True):
+        """
+        Returns :num_samples samples from the benchmark's sample_list, that conforms to the specified condition.
+        :param num_samples: How many samples to return (max)
+        :param cond: A predicate that returns True/False given a SampleData.
+        :return: A list of samples that conforms to the condition.
+        """
         candidates = list(filter(cond, self.sample_list))
         if len(candidates) < num_samples:
             return candidates
         return np.random.choice(candidates, num_samples, replace=False)
 
     def count_samples(self, cond=lambda s: True):
+        """
+        Returns the number of samples from the benchmark's sample_list, that conforms to the specified condition.
+        :param cond: A predicate that returns True/False given a SampleData.
+        :return: The number of samples that conforms to the condition.
+        """
         return len(list(filter(cond, self.sample_list)))
