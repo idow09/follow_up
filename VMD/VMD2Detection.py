@@ -32,10 +32,14 @@ def export_detections(img, show=False):
         if np.sum(([labels == idx])) > 150 and idx != 0:
             label_ar = np.array(labels)
             points = np.where(label_ar == idx)
-            ymin = max(min(points[0]) - 5,0)
-            ymax = min(max(points[0]) + 5, img.shape[0]-1)
-            xmin = max(min(points[1]) - 5,0)
-            xmax = min(max(points[1]) + 5, img.shape[1]-1)
+            # ymin = max(min(points[0]) - 5,0)
+            # ymax = min(max(points[0]) + 5, img.shape[0]-1)
+            # xmin = max(min(points[1]) - 5,0)
+            # xmax = min(max(points[1]) + 5, img.shape[1]-1)
+            ymin = min(points[0])
+            ymax = max(points[0])
+            xmin = min(points[1])
+            xmax = max(points[1])
             detection = (xmin, ymin, xmax, ymax)
             detections.append(detection)
             if show:

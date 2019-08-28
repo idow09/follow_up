@@ -111,15 +111,30 @@ def operate_tracker(tracker):
     # Display tracker type on frame
     cv2.putText(frame, tracker_type + " Tracker", (100, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2);
 
-def write_detection():
-    pass
+def write_detection(preds_path, frame_time, bb):
+    if bb == ():
+        with open(preds_path, 'w') as file:
+            file.write('%g\n' % frame_time)
+            return
+    w=(bb[2]-bb[0])
+    h=(bb[3]-bb[1])
+    c_x = bb[0] + w/2
+    c_y = bb[1] + h/2
+    r = (w+h)/4.0
+    sc = 1.0
+    with open(preds_path, 'w') as file:
+        file.write('%g\n' % frame_time)
+        file.write(('%g ' * 4 + '\n') % (c_x, c_y, r, sc))
 
 
 if __name__ == '__main__':
-    images_path = r"C:\Users\dana\Documents\Ido\follow_up_project\datasets\efi\images\try_set1"
-    destinate_frames_path = r"C:\Users\dana\Documents\Ido\follow_up_project\benchmark\2019_08_21_MOG2\try_set1\pipe"
-    # dest_path = r"C:\Users\dana\Documents\Ido\follow_up_project\benchmark\2019_08_21_MOG2\try_set1\mask"
-    tracker_type = 'KCF'
+    # images_path = r"C:\Users\dana\Documents\Ido\follow_up_project\datasets\efi\images\try_set1"
+    # destinate_frames_path = r"C:\Users\dana\Documents\Ido\follow_up_project\benchmark\2019_08_21_MOG2\try_set1\pipe"
+    images_path = r'C:\Users\dana\Documents\Ido\follow_up_project\datasets\efi\images\slomo2'
+    destinate_frames_path = r'C:\Users\dana\Documents\Ido\follow_up_project\benchmark\2019_08_28_VMD_and_tracker'
+    # destinate_frames_path = r"C:\Users\dana\Documents\Ido\follow_up_project\benchmark\2019_08_21_MOG2\try_set2\pipe_noslomo"
+
+    tracker_type = 'CSRT'
 
     vm_detector = VMdetector()
     capture = get_image(images_path)
@@ -136,8 +151,8 @@ if __name__ == '__main__':
         tracker = None
 
     for i, cap in enumerate(capture):
-        if i > 100:
-            break
+        # if i > 100:
+        #     break
         if i == 0:
             fgMask = vm_detector.apply_image(frame)
             continue
@@ -148,17 +163,22 @@ if __name__ == '__main__':
 
         detected_bb = ()
 
+
         detected_bb = analyze_frame()
 
-        fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer)
+        frame_tics = cv2.getTickCount() - timer
+        fps = cv2.getTickFrequency() / (frame_tics)
+        frame_time = 1/float(fps)
         # Display FPS on frame
         cv2.putText(frame, "FPS : " + str(int(fps)), (100, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2);
 
-        cv.imwrite(os.path.join(destinate_frames_path, name), frame)
+        dest_img_path = os.path.join(destinate_frames_path, name)
+        cv.imwrite(dest_img_path, frame)
         # cv.imwrite(os.path.join(destinate_frames_path, name.replace(".jpg", "_mask.jpg")), fgMask)
-        # cv.imwrite(os.path.join(destinate_frames_path, name.replace(".jpg", "_de_mask.jpg")), denoised_mask)
+        # cv.imwrite(os.path.join(destinate_frames_path, name.replace(".jpg", "_mask_de.jpg")), denoised_mask)
+        pred_path = os.path.join(destinate_frames_path, name.replace(".jpg", ".txt"))
         print("detected_bb: ",detected_bb)
-        write_detection(detected_bb)
+        write_detection(pred_path, frame_time, detected_bb)
 
     end = time()
     print("time: ", (end - begin) / 100)

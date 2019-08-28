@@ -20,7 +20,7 @@ def denoise_foreground(img, fgmask):
     # mask = cv2.morphologyEx(img_bw, cv2.MORPH_CLOSE, se1)
     mask = cv2.morphologyEx(img_bw, cv2.MORPH_OPEN, se2)
     mask = np.dstack([mask, mask, mask]) / 255
-    img_dn = img * mask
+    # img_dn = img * mask
     return mask*255
 
 
