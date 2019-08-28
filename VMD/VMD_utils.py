@@ -29,7 +29,7 @@ class VMdetector:
         if backsub != None:
             self.backsub = backsub
         else:
-            self.backsub = cv2.createBackgroundSubtractorMOG2(history=100, varThreshold=300, detectShadows=True)
+            self.backsub = cv2.createBackgroundSubtractorMOG2(history=100, varThreshold=30, detectShadows=True)
         self.denoised_mask = None
         self.class_idx = class_idx
 
