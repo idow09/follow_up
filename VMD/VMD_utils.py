@@ -4,7 +4,7 @@ import cv2 as cv
 from time import time
 import os
 import numpy as np
-from VMD.VMD2Detection import export_detections
+from VMD.VMD2Detection import export_detections, export_contour_detection
 
 def get_image(path):
     for root, dirs, files in os.walk(path):
@@ -16,7 +16,7 @@ def get_image(path):
 def denoise_foreground(img, fgmask):
     img_bw = 255*(fgmask > 5).astype('uint8')
     # se1 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (1,1))
-    se2 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (6,6))
+    se2 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (4,4))
     # mask = cv2.morphologyEx(img_bw, cv2.MORPH_CLOSE, se1)
     mask = cv2.morphologyEx(img_bw, cv2.MORPH_OPEN, se2)
     mask = np.dstack([mask, mask, mask]) / 255
@@ -29,7 +29,7 @@ class VMdetector:
         if backsub != None:
             self.backsub = backsub
         else:
-            self.backsub = cv2.createBackgroundSubtractorMOG2(history=100, varThreshold=30, detectShadows=True)
+            self.backsub = cv2.createBackgroundSubtractorMOG2(history=100, varThreshold=100, detectShadows=False)
         self.denoised_mask = None
         self.class_idx = class_idx
 
@@ -47,9 +47,10 @@ class VMdetector:
             mask = self.fgMask
         else:
             mask = self.denoised_mask
-        # mask = cv2.cvtColor(mask.astype('float32'), cv2.COLOR_BGR2GRAY)
+
         mask = cv2.cvtColor(mask.astype('uint8'), cv2.COLOR_BGR2GRAY)
-        detections = export_detections(mask)
+        # detections = export_detections(mask)
+        detections = export_contour_detection(mask)
         return detections
 
     # def filter_detections(self, detections):

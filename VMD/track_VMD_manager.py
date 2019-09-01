@@ -14,6 +14,21 @@ BRIGHTNESS_THRESHOLD = 173
 SATURATION_THRESHOLD = 173
 
 
+class Time_analyzer:
+    def __init__(self):
+        self.time_sum = 0
+        self.time_counters = {}
+
+    def add_time(self, type_name, start_time):
+        time = (cv2.getTickCount() - start_time) / cv2.getTickFrequency()
+        if type_name in self.time_counters:
+            self.time_counters[type_name] +=time
+        else:
+            self.time_counters[type_name] = time
+
+
+
+
 def get_image(path):
     for root, dirs, files in os.walk(path):
         for name in files:
@@ -51,35 +66,40 @@ def predict_ball_location(image, color_mode='bgr'):
 
 
 def analyze_frame():
-    global detected_bb, catched, fgMask, denoised_mask, tracker
-    if tracker and catched == True and tracker.is_inited:  # VMD in i-1
+    global detected_bb, catched, fgMask, denoised_mask, tracker, detector_counter, timer_analyzer
+    if detector_counter>10:
+        catched = False
+    if tracker and catched == True and tracker.is_inited :  # VMD in i-1
+        start_track = cv2.getTickCount()
         operate_tracker(tracker)
+        timer_analyzer.add_time("tracking", start_track)
+
     if not catched:
         operate_VMD_detection()
+        detector_counter=0
     return detected_bb
 
 
 def operate_VMD_detection():
-    global fgMask, denoised_mask, detected_bb, tracker, catched
+    global fgMask, denoised_mask, detected_bb, tracker, catched, timer_analyzer
+    start_VMD = cv2.getTickCount()
     fgMask = vm_detector.apply_image(orig_frame)
+    timer_analyzer.add_time("VMD", start_VMD)
+
+    start_denoising = cv2.getTickCount()
     denoised_mask = vm_detector.denoise()
+    timer_analyzer.add_time("denoising", start_denoising)
+
+    start_detection = cv2.getTickCount()
     detections = vm_detector.detect()
+    timer_analyzer.add_time("detection", start_detection)
+
+    start_search = cv2.getTickCount()
     detect_bool = False
-    for det in detections:
-        bb_img = orig_frame[det[1]:det[3], det[0]:det[2], :]
-        # idxs=(284, 621, 324, 665),image = image[621:665, 284:324, :]
-        class_idx, class_name, cur_percentage = classifier.apply(bb_img)
-        # # if class_idx == 723 or class_idx == 417 or class_idx == 722 or class_idx == 574 or class_idx == 574 or class_idx == 920:
-        #     detected_bb = det
-        #     cv2.rectangle(frame, (det[0], det[1]), (det[2], det[3]), (255, 0, 0), 2, 1)  #frame is with BBs
-        #     detect_bool = True
-        #     break
-        is_ball = predict_ball_location(bb_img)
-        if is_ball:
-            detected_bb = det
-            cv2.rectangle(frame, (det[0], det[1]), (det[2], det[3]), (255, 0, 0), 2, 1)  # frame is with BBs
-            detect_bool = True
-            break
+    detect_bool = search_the_correct_detection(detect_bool, detections)
+    timer_analyzer.add_time("search_correct_det", start_search)
+
+    start_track = cv2.getTickCount()
     if detect_bool == True and tracker:
         # track_bbox=(286, 622, 40, 42)
         track_bbox = (
@@ -90,10 +110,35 @@ def operate_VMD_detection():
             catched = True
         else:
             catched = False
+    timer_analyzer.add_time("tracking", start_track)
+
+
+def search_the_correct_detection(detect_bool, detections):
+    global detected_bb
+    for det in detections:
+        bb_img = orig_frame[det[1]:det[3], det[0]:det[2], :]
+        # idxs=(284, 621, 324, 665),image = image[621:665, 284:324, :]
+        classification_start = cv2.getTickCount()
+        class_idx, class_name, cur_percentage = classifier.apply(bb_img)
+        timer_analyzer.add_time("classification", classification_start)
+        # # if class_idx == 723 or class_idx == 417 or class_idx == 722 or class_idx == 574 or class_idx == 574 or class_idx == 920:
+        #     detected_bb = det
+        #     cv2.rectangle(frame, (det[0], det[1]), (det[2], det[3]), (255, 0, 0), 2, 1)  #frame is with BBs
+        #     detect_bool = True
+        #     break
+        classic_classification_start = cv2.getTickCount()
+        is_ball = predict_ball_location(bb_img)
+        timer_analyzer.add_time("classic_classification", classic_classification_start)
+        if is_ball:
+            detected_bb = det
+            cv2.rectangle(frame, (det[0], det[1]), (det[2], det[3]), (255, 0, 0), 2, 1)  # frame is with BBs
+            detect_bool = True
+            break
+    return detect_bool
 
 
 def operate_tracker(tracker):
-    global detected_bb, catched
+    global detected_bb, catched, detector_counter
     tracker_ok, bbox = tracker.update(frame)
     # Draw bounding box
     if tracker_ok:
@@ -102,6 +147,7 @@ def operate_tracker(tracker):
         p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
         cv2.rectangle(frame, p1, p2, (255, 0, 0), 2, 1)
         detected_bb = (p1[0], p1[1], p2[0], p2[1])
+        detector_counter+=1
 
     else:
         # Tracking failure
@@ -126,16 +172,35 @@ def write_detection(preds_path, frame_time, bb):
         file.write('%g\n' % frame_time)
         file.write(('%g ' * 4 + '\n') % (c_x, c_y, r, sc))
 
+def write_time(destinate_frames_path,images_path):
+    global  i
+    path = os.path.join(destinate_frames_path, os.path.basename(images_path))
+    print("times analyzer:")
+    with open(path, 'w') as time_f:
+        for key, val in timer_analyzer.time_counters.items():
+            line=str(key)+" "+str(val/i)+"\n"
+            time_f.write(line)
+            print(line)
+
+def resize_image(oriimg, max_size):
+    height, width, depth = oriimg.shape
+    max_dim = max(height, width)
+    imgScale =  max_size / max_dim
+    newX, newY = oriimg.shape[1] * imgScale, oriimg.shape[0] * imgScale
+    newimg = cv2.resize(oriimg, (int(newX), int(newY)))
+    return newimg, imgScale
+
 
 if __name__ == '__main__':
     # images_path = r"C:\Users\dana\Documents\Ido\follow_up_project\datasets\efi\images\try_set1"
     # destinate_frames_path = r"C:\Users\dana\Documents\Ido\follow_up_project\benchmark\2019_08_21_MOG2\try_set1\pipe"
-    images_path = r'C:\Users\dana\Documents\Ido\follow_up_project\datasets\efi\images\slomo2'
+    images_path = r'C:\Users\dana\Documents\Ido\follow_up_project\datasets\efi\images\vid6'
     destinate_frames_path = r'C:\Users\dana\Documents\Ido\follow_up_project\benchmark\2019_08_28_VMD_and_tracker'
-    # destinate_frames_path = r"C:\Users\dana\Documents\Ido\follow_up_project\benchmark\2019_08_21_MOG2\try_set2\pipe_noslomo"
+    destinate_frames_path = r"C:\Users\dana\Documents\Ido\follow_up_project\benchmark\2019_08_21_MOG2\try_set2\pipe_noslomo"
 
-    tracker_type = 'CSRT'
+    tracker_type = ''
 
+    timer_analyzer = Time_analyzer()
     vm_detector = VMdetector()
     capture = get_image(images_path)
     frame, name = next(capture)
@@ -143,6 +208,7 @@ if __name__ == '__main__':
     begin = time()
     fgMask = None
     catched = False
+    detector_counter=0
     classifier = FastClassifier()
     detected_bb = None
     if tracker_type != "":
@@ -158,6 +224,8 @@ if __name__ == '__main__':
             continue
         print(i)
         frame, name = cap
+        frame, scale = resize_image(frame, 416)
+
         orig_frame = deepcopy(frame)
         timer = cv2.getTickCount()
 
@@ -165,6 +233,8 @@ if __name__ == '__main__':
 
 
         detected_bb = analyze_frame()
+        if detected_bb!= ():
+            detected_bb = (int(detected_bb[0]/scale), int(detected_bb[1]/scale), int(detected_bb[2]/scale), int(detected_bb[3]/scale))
 
         frame_tics = cv2.getTickCount() - timer
         fps = cv2.getTickFrequency() / (frame_tics)
@@ -180,5 +250,7 @@ if __name__ == '__main__':
         print("detected_bb: ",detected_bb)
         write_detection(pred_path, frame_time, detected_bb)
 
+
     end = time()
-    print("time: ", (end - begin) / 100)
+    print("time: ", (end - begin) / i)
+    write_time(destinate_frames_path, images_path)

@@ -78,6 +78,7 @@ class Benchmark:
         self.scale = scale
         self.roc = None
         self.center_dist_list = None
+        self.run_time = None
 
         self.fake = fake
         self.persist = persist
@@ -92,6 +93,7 @@ class Benchmark:
         """
         labels_path = str(Path(labels_root) / Path(image_path).name).replace('.jpg', '.txt')
         preds_path = str(Path(preds_root) / Path(image_path).name).replace('.jpg', '.txt')
+        # print("preds_path", preds_path)
         labels = parse_labels(labels_path)
         if self.fake:
             preds, time = generate_fake_preds(preds_path, labels, persist=self.persist)
@@ -124,6 +126,15 @@ class Benchmark:
         """
         self.calc_roc(thresholds=thresholds)
         self.calc_hist()
+        self.calc_time()
+
+    def calc_time(self):
+        time_sum=0.0
+        for sample in self.sample_list:
+            time_sum+=sample.time
+        self.run_time = time_sum
+
+
 
     def calc_hist(self):
         """
