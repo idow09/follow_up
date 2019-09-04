@@ -129,7 +129,6 @@ def search_the_correct_detection(detect_bool, detections):
         #     break
         classic_classification_start = cv2.getTickCount()
         is_ball = predict_ball_location(bb_img)
-        is_ball = True
         timer_analyzer.add_time("classic_classification", classic_classification_start)
         if is_ball:
             detected_bb = det
@@ -197,7 +196,7 @@ if __name__ == '__main__':
     # images_path = r"C:\Users\dana\Documents\Ido\follow_up_project\datasets\efi\images\try_set1"
     # destinate_frames_path = r"C:\Users\dana\Documents\Ido\follow_up_project\benchmark\2019_08_21_MOG2\try_set1\pipe"
     images_path = r'C:\Users\dana\Documents\Ido\follow_up_project\datasets\walking_benchmark\images'
-    destinate_frames_path = r'C:\Users\dana\Documents\Ido\follow_up_project\benchmark\walking_benchmark\2019_09_04_vmd2'
+    destinate_frames_path = r'C:\Users\dana\Documents\Ido\follow_up_project\benchmark\walking_benchmark\2019_09_04_vmd'
     # destinate_frames_path = r"C:\Users\dana\Documents\Ido\follow_up_project\benchmark\2019_08_21_MOG2\try_set2\pipe_noslomo"
 
     # for j in range(1,4):
@@ -249,8 +248,8 @@ if __name__ == '__main__':
 
         dest_img_path = os.path.join(destinate_frames_path, name)
         cv.imwrite(dest_img_path, frame)
-        # cv.imwrite(os.path.join(destinate_frames_path, name.replace(".jpg", "_mask.jpg")), fgMask)
-        # cv.imwrite(os.path.join(destinate_frames_path, name.replace(".jpg", "_mask_de.jpg")), denoised_mask)
+        cv.imwrite(os.path.join(destinate_frames_path, name.replace(".jpg", "_mask.jpg")), fgMask)
+        cv.imwrite(os.path.join(destinate_frames_path, name.replace(".jpg", "_mask_de.jpg")), denoised_mask)
         pred_path = os.path.join(destinate_frames_path, name.replace(".jpg", ".txt"))
         print("detected_bb: ",detected_bb)
         write_detection(pred_path, frame_time, detected_bb)

@@ -15,10 +15,13 @@ def get_image(path):
 
 def denoise_foreground(img, fgmask):
     img_bw = 255*(fgmask > 5).astype('uint8')
-    # se1 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (1,1))
-    se2 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (4,4))
-    # mask = cv2.morphologyEx(img_bw, cv2.MORPH_CLOSE, se1)
-    mask = cv2.morphologyEx(img_bw, cv2.MORPH_OPEN, se2)
+    mask = img_bw
+    se0 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    se1 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (6,6))
+    se2 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (50,50))
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, se0)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, se1)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, se2)
     mask = np.dstack([mask, mask, mask]) / 255
     # img_dn = img * mask
     return mask*255
@@ -29,13 +32,13 @@ class VMdetector:
         if backsub != None:
             self.backsub = backsub
         else:
-            self.backsub = cv2.createBackgroundSubtractorMOG2(history=100, varThreshold=100, detectShadows=False)
+            self.backsub = cv2.createBackgroundSubtractorMOG2(history=5, varThreshold=10, detectShadows=True)
         self.denoised_mask = None
         self.class_idx = class_idx
 
     def apply_image(self, frame):
         self.cur_frame = frame
-        self.fgMask = self.backsub.apply(frame)
+        self.fgMask = self.backsub.apply(frame, learningRate=0.05)
         return self.fgMask
 
     def denoise(self):
