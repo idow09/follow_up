@@ -15,8 +15,9 @@ project_root = 'C:\\Users\\dana\\Documents\\Ido\\follow_up_project'
 data_root = os.path.join(project_root, 'datasets', 'walking_benchmark')
 images_root = os.path.join(data_root, 'images')
 labels_root = os.path.join(data_root, 'labels')
-results_root =os.path.join(project_root, 'benchmark', 'walking_benchmark','2019_09_04_vmd')
+results_root =os.path.join(project_root, 'benchmark', 'walking_benchmark','2019_09_05_multitracker')
 images_root = r'C:\\Users\dana\Documents\Ido\follow_up_project\datasets\walking_benchmark\images\filenames_from10.txt'
+
 
 bm = Benchmark("experiment", fake=False, persist=False)
 # bm = Benchmark("experiment")
