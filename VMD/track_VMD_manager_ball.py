@@ -66,7 +66,7 @@ def predict_ball_location(image, color_mode='bgr'):
 
 
 def analyze_frame():
-    global detected_bb, catched, fgMask, denoised_mask, tracker, detector_counter, timer_analyzer
+    global detected_bb, catched, fgMask, denoised_mask, multy_tracker, detector_counter, timer_analyzer
     if detector_counter>10:
         catched = False
     if tracker and catched == True and tracker.is_inited :  # VMD in i-1
@@ -81,7 +81,7 @@ def analyze_frame():
 
 
 def operate_VMD_detection():
-    global fgMask, denoised_mask, detected_bb, tracker, catched, timer_analyzer
+    global fgMask, denoised_mask, detected_bb, multy_tracker, catched, timer_analyzer
     start_VMD = cv2.getTickCount()
     fgMask = vm_detector.apply_image(orig_frame)
     timer_analyzer.add_time("VMD", start_VMD)
@@ -216,9 +216,9 @@ if __name__ == '__main__':
     classifier = FastClassifier()
     detected_bb = None
     if tracker_type != "":
-        tracker = FastTracker(tracker_type)
+        multy_tracker = FastTracker(tracker_type)
     else:
-        tracker = None
+        multy_tracker = None
 
     for i, cap in enumerate(capture):
         # if i > 100:

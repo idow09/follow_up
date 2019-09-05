@@ -53,6 +53,38 @@ class FastTracker():
         return ok, bbox
 
 
+class MultiTracker():
+    def __init__(self, tracker_type):
+        self.trackers=[]
+        self.tracker_type = tracker_type
+        self.counter = 0
+        self.is_working = False
+
+    def init_new_tracker(self, frame, bbox):
+        tracker = FastTracker(self.tracker_type )
+        ok = tracker.init_tracker( frame, bbox)
+        if ok:
+            self.trackers.append(tracker)
+            self.counter+=1
+            self.is_working = True
+
+            return self.counter-1
+        else:
+            return -1
+
+    def update(self, frame):
+        bboxes = []
+        oxs = []
+        for tracker in self.trackers:
+            ok, bbox = tracker.update(frame)
+            if not ok:
+                self.is_working = False
+
+            bboxes.append(bbox)
+            oxs.append([ok])
+        return oxs,bboxes
+
+
 if __name__ == '__main__':
 
     # Set up tracker.
@@ -63,7 +95,7 @@ if __name__ == '__main__':
     tracker_types1= ['BOOSTING', 'MIL', 'TLD', 'MEDIANFLOW', 'GOTURN']
     tracker_types = ['KCF', 'MOSSE', 'CSRT']
     tracker_type = tracker_types[0]
-    tracker = create_tracker(tracker_type)
+    multy_tracker = create_tracker(tracker_type)
 
     # Read video
     video = cv2.VideoCapture(r"C:\Users\dana\Documents\Ido\follow_up_project\datasets\efi\videos\efi_slomo_vid_1.mp4")
@@ -95,7 +127,7 @@ if __name__ == '__main__':
     bbox=(a, b,c,d)
 
     # Initialize tracker with first frame and bounding box
-    ok = tracker.init(frame, bbox)
+    ok = multy_tracker.init(frame, bbox)
 
     i=0
     strart = time()
@@ -107,7 +139,7 @@ if __name__ == '__main__':
             break
 
         if i == 88:
-            tracker = create_tracker(tracker_type)
+            multy_tracker = create_tracker(tracker_type)
             # Uncomment the line below to select a different bounding box
             clone1 = cv2.resize(frame, (int(frame.shape[1] / 2), int(frame.shape[0] / 2)), interpolation=cv2.INTER_AREA)
             refPt = cv2.selectROI(clone1, False)
@@ -115,12 +147,12 @@ if __name__ == '__main__':
             a, b, c, d = (refPt[0]) * 2, (refPt[1]) * 2, (refPt[2]) * 2, (refPt[3]) * 2
             bbox = (a, b, c, d)
             print("bbox: ", bbox)
-            ok = tracker.init(frame, bbox)
+            ok = multy_tracker.init(frame, bbox)
         # Start timer
         timer = cv2.getTickCount()
 
         # Update tracker
-        ok, bbox = tracker.update(frame)
+        ok, bbox = multy_tracker.update(frame)
 
         # Calculate Frames per second (FPS)
         fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer);

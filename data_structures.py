@@ -20,7 +20,7 @@ class SampleData:
 
 
 @auto_str
-class Prediction:
+class CirclePrediction:
     """
     Contains coordinates as well as score, a (calculated) matched label, and some stats.
     """
@@ -80,6 +80,91 @@ class Prediction:
         b = np.array([self.matched_label.x, self.matched_label.y])
         self.center_dist = np.linalg.norm(a - b)
 
+    def match_label(self, labels, shape="circle"):
+        """
+        Match the prediction with the most probable (highest IoU) label from the given list.
+        If None found, no matched_label will be stored.
+        :param labels: The pool of labels to match with.
+        """
+        match_iou = 0
+        match = None
+        for label in labels:
+
+            iou = self.calc_circle_iou(label)
+            if iou > match_iou:
+                match_iou = iou
+                match = label
+        self.matched_label = match
+        self.iou = match_iou
+        self.calc_center_dist()
+
+
+@auto_str
+class CircleLabel:
+    """
+    A class to bundle the coordinates for a label (x, y, r)
+    """
+
+    def __init__(self, x, y, r):
+        self.x = x
+        self.y = y
+        self.r = r
+
+
+@auto_str
+class Prediction:
+    """
+    Contains coordinates as well as score, a (calculated) matched label, and some stats.
+    """
+    def __init__(self, x1, y1, x2, y2, score):
+        self.x1 = x1
+        self.y1 = y1
+        self.x2 = x2
+        self.y2 = y2
+        self.score = score
+        self.matched_label = None
+        self.iou = None
+        self.center_dist = None
+
+    def calc_rect_iou(self, label):
+        """
+        Prefer :calc_iou
+        """
+        box_a = [self.x1, self.y1, self.x2, self.y2]
+        box_b = [label.x1, label.y1, label.x2, label.y2]
+        # determine the (x, y)-coordinates of the intersection rectangle
+        x_a = max(box_a[0], box_b[0])
+        y_a = max(box_a[1], box_b[1])
+        x_b = min(box_a[2], box_b[2])
+        y_b = min(box_a[3], box_b[3])
+
+        # compute the area of intersection rectangle
+        inter_area = max(0, x_b - x_a + 1) * max(0, y_b - y_a + 1)
+
+        # compute the area of both the prediction and ground-truth
+        # rectangles
+        box_a_area = (box_a[2] - box_a[0] + 1) * (box_a[3] - box_a[1] + 1)
+        box_b_area = (box_b[2] - box_b[0] + 1) * (box_b[3] - box_b[1] + 1)
+
+        return inter_area / float(box_a_area + box_b_area - inter_area)
+
+    def calc_center_dist(self):
+        if self.matched_label is None:
+            return
+        w = self.x2 - self.x1
+        h = self.y2 - self.y1
+        cx = int(self.x1 + w/2)
+        cy = int(self.y1 + h/2)
+
+        lw = self.matched_label.x2 - self.matched_label.x1
+        lh = self.matched_label.y2 - self.matched_label.y1
+        lcx = int(self.matched_label.x1 + lw / 2)
+        lcy = int(self.matched_label.y1 + lh / 2)
+
+        a = np.array([cx, cy])
+        b = np.array([lcx, lcy])
+        self.center_dist = np.linalg.norm(a - b)
+
     def match_label(self, labels):
         """
         Match the prediction with the most probable (highest IoU) label from the given list.
@@ -89,7 +174,8 @@ class Prediction:
         match_iou = 0
         match = None
         for label in labels:
-            iou = self.calc_circle_iou(label)
+
+            iou = self.calc_rect_iou(label)
             if iou > match_iou:
                 match_iou = iou
                 match = label
@@ -101,10 +187,11 @@ class Prediction:
 @auto_str
 class Label:
     """
-    A class to bundle the coordinates for a label (x, y, r)
+    A class to bundle the coordinates for a label (x1, y1, x2, y2)
     """
 
-    def __init__(self, x, y, r):
-        self.x = x
-        self.y = y
-        self.r = r
+    def __init__(self, x1, y1, x2, y2):
+        self.x1 = x1
+        self.y1 = y1
+        self.x2 = x2
+        self.y2 = y2

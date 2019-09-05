@@ -5,7 +5,7 @@ import os
 from time import time
 from VMD.VMD_utils import VMdetector
 from VMD.classification import FastClassifier
-from VMD.trackers import FastTracker
+from VMD.trackers import FastTracker, MultiTracker
 from copy import deepcopy
 
 YELLOW_LOWER_HUE = 20
@@ -66,22 +66,22 @@ def predict_ball_location(image, color_mode='bgr'):
 
 
 def analyze_frame():
-    global detected_bb, catched, fgMask, denoised_mask, tracker, detector_counter, timer_analyzer
+    global vm_detector, detected_bb, catched, fgMask, denoised_mask, multy_tracker, detector_counter, timer_analyzer
     if detector_counter>10:
         catched = False
-    if tracker and catched == True and tracker.is_inited :  # VMD in i-1
+    if multy_tracker and catched == True and multy_tracker.is_working :  # VMD in i-1
         start_track = cv2.getTickCount()
-        operate_tracker(tracker)
+        detection_bbs = operate_tracker(multy_tracker)
         timer_analyzer.add_time("tracking", start_track)
 
     if not catched:
-        operate_VMD_detection()
+        detection_bbs=operate_VMD_detection()
         detector_counter=0
-    return detected_bb
+    return detection_bbs
 
 
 def operate_VMD_detection():
-    global fgMask, denoised_mask, detected_bb, tracker, catched, timer_analyzer
+    global fgMask, denoised_mask, multy_tracker, catched, timer_analyzer,vm_detector
     start_VMD = cv2.getTickCount()
     fgMask = vm_detector.apply_image(orig_frame)
     timer_analyzer.add_time("VMD", start_VMD)
@@ -96,31 +96,33 @@ def operate_VMD_detection():
 
     start_search = cv2.getTickCount()
     detect_bool = False
-    detect_bool = search_the_correct_detection(detect_bool, detections)
+    detect_bool, correct_detections = search_the_correct_detections(detect_bool, detections)
     timer_analyzer.add_time("search_correct_det", start_search)
 
     start_track = cv2.getTickCount()
-    if detect_bool == True and tracker:
+    if detect_bool == True and multy_tracker:
         # track_bbox=(286, 622, 40, 42)
-        track_bbox = (
-            detected_bb[0], detected_bb[1], detected_bb[2] - detected_bb[0], detected_bb[3] - detected_bb[1])
-        tracker = FastTracker(tracker_type)
-        tracker_ok = tracker.init_tracker(orig_frame, track_bbox)
-        if tracker_ok:
+        multy_tracker = MultiTracker(tracker_type)
+        if len(correct_detections) > 0:
             catched = True
-        else:
-            catched = False
+        for detected_bb in correct_detections:
+            track_bbox = (
+                detected_bb[0], detected_bb[1], detected_bb[2] - detected_bb[0], detected_bb[3] - detected_bb[1])
+
+            tracker_id = multy_tracker.init_new_tracker(orig_frame, track_bbox)
+            if tracker_id == -1:
+                catched = False
     timer_analyzer.add_time("tracking", start_track)
+    return correct_detections
 
 
-def search_the_correct_detection(detect_bool, detections):
-    global detected_bb
+def search_the_correct_detections(detect_bool, detections):
     correct_detections=[]
     for det in detections:
         bb_img = orig_frame[det[1]:det[3], det[0]:det[2], :]
         # idxs=(284, 621, 324, 665),image = image[621:665, 284:324, :]
         classification_start = cv2.getTickCount()
-        class_idx, class_name, cur_percentage = classifier.apply(bb_img)
+        # class_idx, class_name, cur_percentage = classifier.apply(bb_img)
         timer_analyzer.add_time("classification", classification_start)
         # # if class_idx == 723 or class_idx == 417 or class_idx == 722 or class_idx == 574 or class_idx == 574 or class_idx == 920:
         #     detected_bb = det
@@ -128,51 +130,55 @@ def search_the_correct_detection(detect_bool, detections):
         #     detect_bool = True
         #     break
         classic_classification_start = cv2.getTickCount()
-        is_ball = predict_ball_location(bb_img)
+        # is_ball = predict_ball_location(bb_img)
         is_ball = True
         timer_analyzer.add_time("classic_classification", classic_classification_start)
         if is_ball:
-            detected_bb = det
             cv2.rectangle(frame, (det[0], det[1]), (det[2], det[3]), (255, 0, 0), 2, 1)  # frame is with BBs
             detect_bool = True
-            correct_detections.append(detected_bb)
-    return detect_bool
+            correct_detections.append(det)
+    return detect_bool, correct_detections
 
 
 def operate_tracker(tracker):
     global detected_bb, catched, detector_counter
-    tracker_ok, bbox = tracker.update(frame)
+    tracker_oks, bboxs = tracker.update(frame)
+    detections = []
     # Draw bounding box
-    if tracker_ok:
-        # Tracking success
-        p1 = (int(bbox[0]), int(bbox[1]))
-        p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
-        cv2.rectangle(frame, p1, p2, (255, 0, 0), 2, 1)
-        detected_bb = (p1[0], p1[1], p2[0], p2[1])
-        detector_counter+=1
+    for k,ok in enumerate(tracker_oks):
+        if ok:
+            # Tracking success
+            bbox = bboxs[k]
+            p1 = (int(bbox[0]), int(bbox[1]))
+            p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
+            cv2.rectangle(frame, p1, p2, (255, 0, 0), 2, 1)
+            detected_bb = (p1[0], p1[1], p2[0], p2[1])
+            detections.append(detected_bb)
 
-    else:
-        # Tracking failure
-        cv2.putText(frame, "Tracking failure detected", (100, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255),
-                    2)
-        catched = False
+
+        else:
+            # Tracking failure
+            cv2.putText(frame, "Tracking failure detected", (100, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255),
+                        2)
+            catched = False
     # Display tracker type on frame
     cv2.putText(frame, tracker_type + " Tracker", (100, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2);
+    if len(detections) > 0:
+        detector_counter += 1
+    return detections
 
-def write_detection(preds_path, frame_time, bb):
-    if bb == ():
-        with open(preds_path, 'w') as file:
-            file.write('%g\n' % frame_time)
-            return
-    w=(bb[2]-bb[0])
-    h=(bb[3]-bb[1])
-    c_x = bb[0] + w/2
-    c_y = bb[1] + h/2
-    r = (w+h)/4.0
-    sc = 1.0
+def write_detections(preds_path, frame_time, bbs):
     with open(preds_path, 'w') as file:
         file.write('%g\n' % frame_time)
-        file.write(('%g ' * 4 + '\n') % (c_x, c_y, r, sc))
+    sc = 1.0
+    for bb in bbs:
+        # w=(bb[2]-bb[0])
+        # h=(bb[3]-bb[1])
+        # c_x = bb[0] + w/2
+        # c_y = bb[1] + h/2
+        # r = (w+h)/4.0
+        with open(preds_path, 'a') as file:
+            file.write(('%g ' * 5 + '\n') % (bb[0], bb[1], bb[2], bb[3], sc))
 
 def write_time(destinate_frames_path,images_path):
     global  i
@@ -197,13 +203,13 @@ if __name__ == '__main__':
     # images_path = r"C:\Users\dana\Documents\Ido\follow_up_project\datasets\efi\images\try_set1"
     # destinate_frames_path = r"C:\Users\dana\Documents\Ido\follow_up_project\benchmark\2019_08_21_MOG2\try_set1\pipe"
     images_path = r'C:\Users\dana\Documents\Ido\follow_up_project\datasets\walking_benchmark\images'
-    destinate_frames_path = r'C:\Users\dana\Documents\Ido\follow_up_project\benchmark\walking_benchmark\2019_09_04_vmd2'
-    # destinate_frames_path = r"C:\Users\dana\Documents\Ido\follow_up_project\benchmark\2019_08_21_MOG2\try_set2\pipe_noslomo"
+    destinate_frames_path = r'C:\Users\dana\Documents\Ido\follow_up_project\benchmark\walking_benchmark\2019_09_05_multitracker'
+    destinate_frames_path2 = r"C:\Users\dana\Documents\Ido\follow_up_project\benchmark\walking_benchmark\2019_09_05_multitracker2"
 
     # for j in range(1,4):
     #     images_path = r'C:\Users\dana\Documents\Ido\follow_up_project\datasets\efi\images\slomo{}'.format(j)
 
-    tracker_type = ''
+    tracker_type = 'CSRT'
 
     timer_analyzer = Time_analyzer()
     vm_detector = VMdetector()
@@ -216,19 +222,17 @@ if __name__ == '__main__':
     detector_counter=0
     classifier = FastClassifier()
     detected_bb = None
-    if tracker_type != "":
-        tracker = FastTracker(tracker_type)
-    else:
-        tracker = None
+
+
+    multy_tracker = None
 
     for i, cap in enumerate(capture):
         # if i > 100:
         #     break
-        if i == 0:
-            fgMask = vm_detector.apply_image(frame)
-            continue
+
         print(i)
         frame, name = cap
+        scale=1
         frame, scale = resize_image(frame, 416)
 
         orig_frame = deepcopy(frame)
@@ -237,9 +241,13 @@ if __name__ == '__main__':
         detected_bb = ()
 
 
-        detected_bb = analyze_frame()
-        if detected_bb!= ():
-            detected_bb = (int(detected_bb[0]/scale), int(detected_bb[1]/scale), int(detected_bb[2]/scale), int(detected_bb[3]/scale))
+        detection_bbs = analyze_frame()
+        if len(detection_bbs)>0:
+            scaled_detection_bbs=[]
+            for detected_bb in detection_bbs:
+                detected_bbs_scaled = (int(detected_bb[0]/scale), int(detected_bb[1]/scale), int(detected_bb[2]/scale), int(detected_bb[3]/scale))
+                scaled_detection_bbs.append(detected_bbs_scaled)
+            detection_bbs = scaled_detection_bbs
 
         frame_tics = cv2.getTickCount() - timer
         fps = cv2.getTickFrequency() / (frame_tics)
@@ -247,13 +255,21 @@ if __name__ == '__main__':
         # Display FPS on frame
         cv2.putText(frame, "FPS : " + str(int(fps)), (100, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2);
 
+        if i == 10:
+            if tracker_type != "":
+                multy_tracker = MultiTracker(tracker_type)
+        if i <11:
+            continue
+
         dest_img_path = os.path.join(destinate_frames_path, name)
+        dest_img_path2 = os.path.join(destinate_frames_path2, name)
         cv.imwrite(dest_img_path, frame)
+        cv.imwrite(dest_img_path2, frame)
         # cv.imwrite(os.path.join(destinate_frames_path, name.replace(".jpg", "_mask.jpg")), fgMask)
         # cv.imwrite(os.path.join(destinate_frames_path, name.replace(".jpg", "_mask_de.jpg")), denoised_mask)
         pred_path = os.path.join(destinate_frames_path, name.replace(".jpg", ".txt"))
         print("detected_bb: ",detected_bb)
-        write_detection(pred_path, frame_time, detected_bb)
+        write_detections(pred_path, frame_time, detection_bbs)
 
 
     end = time()

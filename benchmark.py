@@ -1,14 +1,13 @@
 import shutil
 from pathlib import Path
-
-from data_structures import SampleData, Label, Prediction
+from data_structures import SampleData, Label, Prediction, CirclePrediction, CircleLabel
 from utils.fake_generator import generate_fake_preds
 from utils.utils import *
 
 IOU_THRESHOLD = 0.5
 
 
-def parse_labels(labels_path):
+def parse_labels(labels_path, shape="rect"):
     """
     Returns a list of Label objects parsed from a given txt file
     :param labels_path: The path to the txt file that contains labels in the (x, y, r) format.
@@ -19,11 +18,14 @@ def parse_labels(labels_path):
     with open(labels_path, 'r') as gt_f:
         for line in gt_f.readlines():
             label = line.split()
-            labels.append(Label(int(label[0]), int(label[1]), float(label[2])))
+            if shape=="circle":
+                labels.append(CircleLabel(int(label[0]), int(label[1]), float(label[2])))
+            else:
+                labels.append(Label(int(label[0]), int(label[1]), int(label[2]), int(label[3])))
     return labels
 
 
-def parse_preds(preds_path, labels):
+def parse_preds(preds_path, labels, shape="rect"):
     """
     Returns a list of Prediction objects parsed from a given txt file, and matched with a corresponding label.
     :param preds_path: The path to the txt file that contains predictions in the (x, y, r) format.
@@ -37,8 +39,12 @@ def parse_preds(preds_path, labels):
         time = float(pred_f.readline())
         for line in pred_f.readlines():
             log = [float(x) for x in line.split()]
-            pred = Prediction(int(log[0]), int(log[1]), log[2], log[3])
-            pred.match_label(labels)
+            if shape == "circle":
+                pred = CirclePrediction(int(log[0]), int(log[1]), log[2], log[3])
+                pred.match_label(labels, shape=shape)
+            else:
+                pred = Prediction(int(log[0]), int(log[1]), int(log[2]), int(log[3]), log[4])
+                pred.match_label(labels)
             preds.append(pred)
     return preds, time
 
@@ -83,7 +89,7 @@ class Benchmark:
         self.fake = fake
         self.persist = persist
 
-    def parse_sample_results(self, image_path, labels_root, preds_root):
+    def parse_sample_results(self, image_path, labels_root, preds_root, shape="rect"):
         """
         Parse a single sample data into a SampleData, given its image path and the roots of labels & predictions.
         :param image_path: The path to the image.
@@ -94,11 +100,11 @@ class Benchmark:
         labels_path = str(Path(labels_root) / Path(image_path).name).replace('.jpg', '.txt')
         preds_path = str(Path(preds_root) / Path(image_path).name).replace('.jpg', '.txt')
         # print("preds_path", preds_path)
-        labels = parse_labels(labels_path)
+        labels = parse_labels(labels_path, shape=shape)
         if self.fake:
             preds, time = generate_fake_preds(preds_path, labels, persist=self.persist)
         else:
-            preds, time = parse_preds(preds_path, labels)
+            preds, time = parse_preds(preds_path, labels, shape=shape)
         return SampleData(image_path, labels, preds, time, self.scale, self.algo_id)
 
     def parse_experiment_results(self, images_source, labels_root, preds_root):

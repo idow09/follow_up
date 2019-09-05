@@ -28,19 +28,25 @@ def export_contour_detection(img):
     # draw the white paper and eliminate the small pieces (less than 1000000 px). This px count is the same as the QR code dectection
     detections = []
     for cnt in contours:
-        if cv2.contourArea(cnt) > 30:
+        if cv2.contourArea(cnt) > 20:
             # cv2.drawContours(mask, [cnt], 0, 255,
             #                  -1)  # the [] around cnt and 3rd argument 0 mean only the particular contour is drawn
 
             # Build a ROI to crop the QR
             x, y, w, h = cv2.boundingRect(cnt)
+            margin = 5
+            margin_up=10
+            ymin = max((y) - margin_up, 0)
+            ymax = min((y+h) + margin, img.shape[0] - 1)
+            xmin = max((x) - margin, 0)
+            xmax = min((x+w) + margin, img.shape[1] - 1)
             # print(x, y, w, h)
             # roi = mask[y:y + h, x:x + w]
             # crop the original QR based on the ROI
             # QR_crop = orig[y:y + h, x:x + w]
             # use cropped mask image (roi) to get rid of all small pieces
             # QR_final = QR_crop * (roi / 255)
-            detections.append((x, y, x+w, y+h))
+            detections.append((xmin, ymin, xmax, ymax))
     return detections
 
 
@@ -55,10 +61,11 @@ def export_detections(img, show=False):
         if np.sum(([labels == idx])) > 30 and idx != 0:
             label_ar = np.array(labels)
             points = np.where(label_ar == idx)
-            ymin = max(min(points[0]) - 5,0)
-            ymax = min(max(points[0]) + 5, img.shape[0]-1)
-            xmin = max(min(points[1]) - 5,0)
-            xmax = min(max(points[1]) + 5, img.shape[1]-1)
+            margin=10
+            ymin = max(min(points[0]) - (margin),0)
+            ymax = min(max(points[0]) + margin, img.shape[0]-1)
+            xmin = max(min(points[1]) - margin,0)
+            xmax = min(max(points[1]) + margin, img.shape[1]-1)
             # ymin = min(points[0])
             # ymax = max(points[0])
             # xmin = min(points[1])

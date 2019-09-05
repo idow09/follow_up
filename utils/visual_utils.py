@@ -49,6 +49,21 @@ def plot_ball(img, xyr, color=None, line_thickness=None):
         cv2.circle(img, c, int(r), color, thickness=tl)
 
 
+def plot_rect(img, cords, color=None, line_thickness=None):
+    """
+    Plots a ball in the given coordinates with the given color and line thickness
+    :param img: The image to plot on
+    :param cords: A tuple containing coordinates of a ball (x, y, x2, y2)
+    :param color: The desired color
+    :param line_thickness: line thickness
+    """
+    tl = line_thickness or round(0.002 * max(img.shape[0:2])) + 1  # line thickness
+    color = color or [random.randint(0, 255) for _ in range(3)]
+    p1 = (cords[0], cords[1])
+    p2 = (cords[2], cords[3])
+    cv2.rectangle(img, p1, p2, color, thickness=tl)
+
+
 def crop_around_ball(img, xyr):
     """
     DEPRECATED
@@ -59,6 +74,30 @@ def crop_around_ball(img, xyr):
 
 
 def crop_around_aoi(img, sample):
+    """
+    Crops around area of interest
+    :param img: The image to crop.
+    :param sample: SampleData that contains the labels & predictions data for aoi calculation
+    :return: The cropped image
+    """
+    if len(sample.labels) == 0:
+        return img
+    cxs = []
+    cys = []
+    for lbl in sample.labels:
+        cxs.append(int(lbl.x1+(lbl.x2-lbl.x1)/2))
+        cys.append(int(lbl.y1+(lbl.y2-lbl.y1)/2))
+    for prd in sample.preds:
+        cxs.append(int(prd.x1+(prd.x2-prd.x1)/2))
+        cys.append(int(prd.y1+(prd.y2-prd.y1)/2))
+    # TODO: improve this +/- 70 randomness!
+    x1 = max(min(cxs) - 70, 0)
+    y1 = max(min(cys) - 70, 0)
+    x2 = min(max(cxs) + 70, img.shape[1])
+    y2 = min(max(cys) + 70, img.shape[0])
+    return img[y1:y2, x1:x2]
+
+def crop_around_aoi_circle(img, sample):
     """
     Crops around area of interest
     :param img: The image to crop.
@@ -125,7 +164,7 @@ def create_visualizations(images_root, labels_root, visualizations_root, color=N
     print('Done All. (%.3fs)' % (time.time() - t))
 
 
-def create_sample_visualization(sample, iou_th, color_true, color_false, color_label, crop=False, color_mode='bgr'):
+def create_sample_visualization_circle(sample, iou_th, color_true, color_false, color_label, crop=False, color_mode='bgr'):
     """
     Creates an image with labels and predictions plotted on it.
     Predictions are colored differently according to their iou
@@ -149,6 +188,36 @@ def create_sample_visualization(sample, iou_th, color_true, color_false, color_l
         color = color_true if prd.iou > iou_th else color_false
         plot_ball(image, xyr, color=color, line_thickness=2)
         put_label(image, xyr, '%.2f' % sc, color=color)
+
+    image = crop_around_aoi_circle(image, sample) if crop else image
+    return cv2.cvtColor(image, cv2.COLOR_BGR2RGB) if color_mode == 'rgb' else image
+
+
+
+def create_sample_visualization(sample, iou_th, color_true, color_false, color_label, crop=False, color_mode='bgr'):
+    """
+    Creates an image with labels and predictions plotted on it.
+    Predictions are colored differently according to their iou
+    Crops the image around the area of interest if crop=True.
+    :param sample: The SampleData containing the image path, the labels and the predictions
+    :param iou_th: The IoU threshold which predictions are colored relative to.
+    :param color_true: The color for predictions with IoU above the threshold.
+    :param color_false: The color for predictions with IoU under the threshold.
+    :param color_label: The color for labels.
+    :param crop: Whether to crop the image around the area of interest.
+    :param color_mode: The requested color mode for the returned image. 'rgb' or 'bgr'
+    :return: An image in :color_mode color space, with labels and predictions plotted on it. Cropped if requested.
+    """
+    image = cv2.imread(sample.path)
+    for lbl in sample.labels:
+        cords = lbl.x1, lbl.y1, lbl.x2, lbl.y2
+        plot_rect(image, cords, color=color_label, line_thickness=2)
+    for prd in sample.preds:
+        cords = prd.x1, prd.y1, prd.x2, prd.y2
+        sc = prd.score
+        color = color_true if prd.iou > iou_th else color_false
+        plot_rect(image, cords, color=color, line_thickness=2)
+        put_label(image, cords, '%.2f' % sc, color=color)
 
     image = crop_around_aoi(image, sample) if crop else image
     return cv2.cvtColor(image, cv2.COLOR_BGR2RGB) if color_mode == 'rgb' else image
