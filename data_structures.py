@@ -98,6 +98,76 @@ class CirclePrediction:
         self.iou = match_iou
         self.calc_center_dist()
 
+class MultiPrediction:
+    def __init__(self, x1, y1, x2, y2, class_id, score):
+        self.x1 = x1
+        self.y1 = y1
+        self.x2 = x2
+        self.y2 = y2
+        self.class_id = class_id
+        self.score = score
+        self.matched_label = None
+        self.iou = None
+        self.center_dist = None
+
+    def calc_rect_iou(self, label):
+        """
+        Prefer :calc_iou
+        """
+        box_a = [self.x1, self.y1, self.x2, self.y2]
+        box_b = [label.x1, label.y1, label.x2, label.y2]
+        # determine the (x, y)-coordinates of the intersection rectangle
+        x_a = max(box_a[0], box_b[0])
+        y_a = max(box_a[1], box_b[1])
+        x_b = min(box_a[2], box_b[2])
+        y_b = min(box_a[3], box_b[3])
+
+        # compute the area of intersection rectangle
+        inter_area = max(0, x_b - x_a + 1) * max(0, y_b - y_a + 1)
+
+        # compute the area of both the prediction and ground-truth
+        # rectangles
+        box_a_area = (box_a[2] - box_a[0] + 1) * (box_a[3] - box_a[1] + 1)
+        box_b_area = (box_b[2] - box_b[0] + 1) * (box_b[3] - box_b[1] + 1)
+
+        return inter_area / float(box_a_area + box_b_area - inter_area)
+
+    def calc_center_dist(self):
+        if self.matched_label is None:
+            return
+        w = self.x2 - self.x1
+        h = self.y2 - self.y1
+        cx = int(self.x1 + w / 2)
+        cy = int(self.y1 + h / 2)
+
+        lw = self.matched_label.x2 - self.matched_label.x1
+        lh = self.matched_label.y2 - self.matched_label.y1
+        lcx = int(self.matched_label.x1 + lw / 2)
+        lcy = int(self.matched_label.y1 + lh / 2)
+
+        a = np.array([cx, cy])
+        b = np.array([lcx, lcy])
+        self.center_dist = np.linalg.norm(a - b)
+
+    def match_label(self, labels):
+        """
+        Match the prediction with the most probable (highest IoU) label from the given list.
+        If None found, no matched_label will be stored.
+        :param labels: The pool of labels to match with.
+        """
+        match_iou = 0
+        match = None
+        for label in labels:
+            iou = self.calc_rect_iou(label)
+            if iou > match_iou and (label.class_id == self.class_id or label.class_id == -1):
+                match_iou = iou
+                match = label
+        self.matched_label = match
+        self.iou = match_iou
+        self.calc_center_dist()
+        if match:
+            self.is_dont_care = match.class_id == -1
+
 
 @auto_str
 class CircleLabel:
@@ -174,7 +244,6 @@ class Prediction:
         match_iou = 0
         match = None
         for label in labels:
-
             iou = self.calc_rect_iou(label)
             if iou > match_iou:
                 match_iou = iou
@@ -182,6 +251,7 @@ class Prediction:
         self.matched_label = match
         self.iou = match_iou
         self.calc_center_dist()
+        self.is_dont_care = match
 
 
 @auto_str
@@ -195,3 +265,25 @@ class Label:
         self.y1 = y1
         self.x2 = x2
         self.y2 = y2
+
+@auto_str
+class MultiLabel:
+    """
+    A class to bundle the coordinates for a label (x1, y1, x2, y2)
+    """
+
+    def __init__(self, x1, y1, x2, y2, class_str):
+        self.x1 = x1
+        self.y1 = y1
+        self.x2 = x2
+        self.y2 = y2
+
+        self.class_dict = {'dont_care': -1, 'person': 0, 'car': 2}
+        self.class_id = self.convert_string_to_idx(class_str)
+
+
+
+    def convert_string_to_idx(self, class_str):
+        return self.class_dict[class_str]
+
+

@@ -1,10 +1,10 @@
 import shutil
 from pathlib import Path
-from data_structures import SampleData, Label, Prediction, CirclePrediction, CircleLabel
+from data_structures import SampleData, Label, Prediction, CirclePrediction, CircleLabel, MultiLabel, MultiPrediction
 from utils.fake_generator import generate_fake_preds
 from utils.utils import *
 
-IOU_THRESHOLD = 0.5
+IOU_THRESHOLD = 0.1
 
 
 def parse_labels(labels_path, shape="rect"):
@@ -18,8 +18,10 @@ def parse_labels(labels_path, shape="rect"):
     with open(labels_path, 'r') as gt_f:
         for line in gt_f.readlines():
             label = line.split()
-            if shape=="circle":
+            if shape == "circle":
                 labels.append(CircleLabel(int(label[0]), int(label[1]), float(label[2])))
+            elif shape == 'multi':
+                labels.append(MultiLabel(int(label[0]), int(label[1]), int(label[2]), int(label[3]), label[4]))
             else:
                 labels.append(Label(int(label[0]), int(label[1]), int(label[2]), int(label[3])))
     return labels
@@ -42,14 +44,18 @@ def parse_preds(preds_path, labels, shape="rect"):
             if shape == "circle":
                 pred = CirclePrediction(int(log[0]), int(log[1]), log[2], log[3])
                 pred.match_label(labels, shape=shape)
+            elif shape == "multi":
+                pred = MultiPrediction(int(log[0]), int(log[1]), int(log[2]), int(log[3]), int(log[4]), log[5])
+                pred.match_label(labels)
             else:
                 pred = Prediction(int(log[0]), int(log[1]), int(log[2]), int(log[3]), log[4])
                 pred.match_label(labels)
-            preds.append(pred)
+            if pred.matched_label and not pred.is_dont_care:
+                preds.append(pred)
     return preds, time
 
 
-def calc_sample_precision_recall(sample, thresholds):
+def calc_sample_precision_recall(sample, thresholds, shape):
     """
     Calculates precision & recall for a single SampleData (single image) for all given thresholds.
     Stores the results in a dict: sample.stats
@@ -67,12 +73,17 @@ def calc_sample_precision_recall(sample, thresholds):
                     true_pos += 1
                     matched_labels.append(pred.matched_label)
         p = true_pos / tot_pos if tot_pos > 0 else 1.0
-        r = len(set(matched_labels)) / len(sample.labels) if len(sample.labels) > 0 else 1.0
+
+        if shape == 'multi':
+            n_labels = len([x for x in sample.labels if x.class_id != -1])
+        else:
+            n_labels = len(sample.labels)
+        r = len(set(matched_labels)) / n_labels if n_labels > 0 else 1.0
         sample.stats[th] = {'precision': p, 'recall': r}
 
 
 class Benchmark:
-    def __init__(self, algo_id, scale=None, fake=False, persist=False):
+    def __init__(self, algo_id, scale=None, fake=False, persist=False, shape='rect'):
         """
         :param algo_id: Only for documentation purposes
         :param scale: Only for documentation purposes
@@ -88,8 +99,9 @@ class Benchmark:
 
         self.fake = fake
         self.persist = persist
+        self.shape = shape
 
-    def parse_sample_results(self, image_path, labels_root, preds_root, shape="rect"):
+    def parse_sample_results(self, image_path, labels_root, preds_root):
         """
         Parse a single sample data into a SampleData, given its image path and the roots of labels & predictions.
         :param image_path: The path to the image.
@@ -100,11 +112,11 @@ class Benchmark:
         labels_path = str(Path(labels_root) / Path(image_path).name).replace('.jpg', '.txt')
         preds_path = str(Path(preds_root) / Path(image_path).name).replace('.jpg', '.txt')
         # print("preds_path", preds_path)
-        labels = parse_labels(labels_path, shape=shape)
+        labels = parse_labels(labels_path, shape=self.shape)
         if self.fake:
             preds, time = generate_fake_preds(preds_path, labels, persist=self.persist)
         else:
-            preds, time = parse_preds(preds_path, labels, shape=shape)
+            preds, time = parse_preds(preds_path, labels, shape=self.shape)
         return SampleData(image_path, labels, preds, time, self.scale, self.algo_id)
 
     def parse_experiment_results(self, images_source, labels_root, preds_root):
@@ -135,12 +147,10 @@ class Benchmark:
         self.calc_time()
 
     def calc_time(self):
-        time_sum=0.0
+        time_sum = 0.0
         for sample in self.sample_list:
-            time_sum+=sample.time
+            time_sum += sample.time
         self.run_time = time_sum
-
-
 
     def calc_hist(self):
         """
@@ -162,7 +172,7 @@ class Benchmark:
         th2samples_recall_list = {th: [] for th in thresholds}
 
         for sample in self.sample_list:
-            calc_sample_precision_recall(sample, thresholds)
+            calc_sample_precision_recall(sample, thresholds, self.shape)
 
             for th, p_r_dict in sample.stats.items():
                 th2samples_precision_list[th].append(p_r_dict['precision'])
@@ -218,3 +228,18 @@ class Benchmark:
         :return: The number of samples that conforms to the condition.
         """
         return len(list(filter(cond, self.sample_list)))
+
+
+if __name__ == "__main__":
+    project_root = 'C:\\Users\\dana\\Documents\\Ido\\follow_up_project'
+    data_root = os.path.join(project_root, 'datasets', 'walking_benchmark')
+    images_root = os.path.join(data_root, 'images')
+    labels_root = os.path.join(data_root, 'labels_with_dont_care')
+    results_root = os.path.join(project_root, 'benchmark', 'walking_benchmark', '2019_09_08_yolo_baseline', 'results')
+    images_root = r'C:\\Users\dana\Documents\Ido\follow_up_project\datasets\walking_benchmark\filenames_from10.txt'
+
+    bm = Benchmark("experiment", fake=False, persist=False, shape='multi')
+    # bm = Benchmark("experiment")
+    bm.parse_experiment_results(images_root, labels_root, results_root)
+    bm.calc_stats()
+    stop = 0
