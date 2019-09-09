@@ -28,7 +28,7 @@ def denoise_foreground(img, fgmask):
 
 
 class VMdetector:
-    def __init__(self, class_idx=723, backsub=None):
+    def __init__(self, class_idx=723, backsub=None, classifier=None):
         if backsub != None:
             self.backsub = backsub
         else:
