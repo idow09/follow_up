@@ -13,6 +13,7 @@ from VMD.VMD_utils import VMdetector
 from VMD.classification import FastClassifier
 from VMD.trackers import MultiTracker
 from models import resnet
+from utils.utils import resize_image
 
 YELLOW_LOWER_HUE = 20
 YELLOW_UPPER_HUE = 30
@@ -77,88 +78,19 @@ def analyze_frame(vm_detector, catched, multy_tracker, detector_counter, timer_a
         detection_bbs = operate_tracker(multy_tracker)
         timer_analyzer.add_time("tracking", start_track)
     if not catched:
-        detection_bbs = operate_VMD_detection(multy_tracker, timer_analyzer, vm_detector, orig_frame)
-
-    return detection_bbs
-
-
-def operate_VMD_detection(multy_tracker, timer_analyzer, vm_detector, orig_frame):
-    start_VMD = cv2.getTickCount()
-    frame, scale = resize_image(orig_frame, 416)
-    fgMask = vm_detector.apply_image(frame)
-    timer_analyzer.add_time("VMD", start_VMD)
-
-    start_denoising = cv2.getTickCount()
-    denoised_mask = vm_detector.denoise()
-    timer_analyzer.add_time("denoising", start_denoising)
-
-    start_detection = cv2.getTickCount()
-    detections = vm_detector.detect()
-    timer_analyzer.add_time("detection", start_detection)
-
-    start_search = cv2.getTickCount()
-    detect_bool = False
-    detect_bool, correct_detections = search_the_correct_detections(detect_bool, detections, orig_frame, scale)
-    timer_analyzer.add_time("search_correct_det", start_search)
-
-    start_track = cv2.getTickCount()
-    if detect_bool == True and multy_tracker:
-        # track_bbox=(286, 622, 40, 42)
-        multy_tracker = MultiTracker(tracker_type)
-        if len(correct_detections) > 0:
-            catched = True
-        for detected_bb in correct_detections:
-            track_bbox = (
-                detected_bb[0], detected_bb[1], detected_bb[2] - detected_bb[0], detected_bb[3] - detected_bb[1])
+        detection_bbs = vm_detector.detect(orig_frame)
+        if len(detection_bbs) != 0 and multy_tracker:
+            for detected_bb in detection_bbs:
+                track_bbox = (
+                    detected_bb[0], detected_bb[1], detected_bb[2] - detected_bb[0], detected_bb[3] - detected_bb[1])
 
             tracker_id = multy_tracker.init_new_tracker(orig_frame, track_bbox)
             if tracker_id == -1:
                 catched = False
-    timer_analyzer.add_time("tracking", start_track)
-    return correct_detections
 
+    return detection_bbs
 
-def search_the_correct_detections(detect_bool, detections, orig_frame, scale, valid_class_list=None):
-    if valid_class_list is None:
-        valid_class_list = [723, 417, 722, 574, 920]
-    correct_detections = []
-    for det in detections:
-        det = np.array(det)
-        det = (det/scale).astype(np.int)
-        bb_img = orig_frame[det[1]:det[3], det[0]:det[2], :]
-        # idxs=(284, 621, 324, 665),image = image[621:665, 284:324, :]
-        classification_start = cv2.getTickCount()
-        # resize large axis to 100
-        # bb_img, scale = resize_image(bb_img, 150)
-        # bb_img = cv2.resize(bb_img, (100, 100))
-        # bb_img, scale = resize_image(bb_img, 200)
-        # TODO: remove
-        cv2.imshow('image', bb_img)
-        # here it should be the pause
-        k = cv2.waitKey(0)
-        sleep(1)
-        # wait for ESC key to exit
-        cv2.destroyAllWindows()
-        # Todo: remove
-        class_idx, class_name, cur_percentage = classifier.apply(bb_img)
-        print(class_name)
-        timer_analyzer.add_time("classification", classification_start)
-        if class_idx in valid_class_list:
-            cv2.rectangle(frame, (det[0], det[1]), (det[2], det[3]), (255, 0, 0), 2, 1)  # frame is with BBs
-            detect_bool = True
-            break
-        classic_classification_start = cv2.getTickCount()
-        # detect_bool = predict_ball_location(bb_img)
-        timer_analyzer.add_time("classic_classification", classic_classification_start)
-        if detect_bool:
-            cv2.rectangle(frame, (det[0], det[1]), (det[2], det[3]), (255, 0, 0), 2, 1)  # frame is with BBs
-            detect_bool = True
-            correct_detections.append(det)
-    return detect_bool, correct_detections
-
-
-def operate_tracker(tracker):
-    global detected_bb, catched, detector_counter
+def operate_tracker(tracker, detected_bb, catched, detector_counter):
     tracker_oks, bboxs = tracker.update(frame)
     detections = []
     # Draw bounding box
@@ -171,8 +103,6 @@ def operate_tracker(tracker):
             cv2.rectangle(frame, p1, p2, (255, 0, 0), 2, 1)
             detected_bb = (p1[0], p1[1], p2[0], p2[1])
             detections.append(detected_bb)
-
-
         else:
             # Tracking failure
             cv2.putText(frame, "Tracking failure detected", (100, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255),
@@ -209,15 +139,6 @@ def write_time(destinate_frames_path, images_path, cur_idx):
             print(line)
 
 
-def resize_image(oriimg, max_size):
-    height, width, depth = oriimg.shape
-    max_dim = max(height, width)
-    imgScale = max_size / max_dim
-    newX, newY = oriimg.shape[1] * imgScale, oriimg.shape[0] * imgScale
-    newimg = cv2.resize(oriimg, (int(newX), int(newY)))
-    return newimg, imgScale
-
-
 if __name__ == '__main__':
     # images_path = r"C:\Users\dana\Documents\Ido\follow_up_project\datasets\efi\images\try_set1"
     # destinate_frames_path = r"C:\Users\dana\Documents\Ido\follow_up_project\benchmark\2019_08_21_MOG2\try_set1\pipe"
@@ -249,13 +170,14 @@ if __name__ == '__main__':
 
     # classes initialization
     timer_analyzer = time_analyzer()
-    vm_detector = VMdetector()
     denoised_mask = None
     begin = time()
     fgMask = None
     catched = False
     detector_counter = 0
     classifier = FastClassifier(model, normalize, classes_file_path)
+    vm_detector = VMdetector()
+    detector_frames_init = 10
     detected_bb = None
     tracker_type = 'CSRT'
     multy_tracker = None
@@ -265,12 +187,13 @@ if __name__ == '__main__':
     frame, name = next(capture)
     for i, cap in tqdm(enumerate(capture)):
         orig_frame, name = cap
-        scale = 1
         timer = cv2.getTickCount()
-        detected_bb = ()
-
+        scale=1
         # run over current frame
+        if i < detector_frames_init:
+            vm_detector.apply_image(frame)
         detection_bbs = analyze_frame(vm_detector, catched, multy_tracker, detector_counter, timer_analyzer, orig_frame)
+
 
         # analyze detection
         if len(detection_bbs) > 0:

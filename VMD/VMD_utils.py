@@ -1,82 +1,126 @@
+import os
+from time import time
 
 import cv2
 import cv2 as cv
-from time import time
-import os
 import numpy as np
-from VMD.VMD2Detection import export_detections, export_contour_detection
+
+from utils.utils import resize_image
+from VMD.VMD2Detection import export_contour_detection
+
 
 def get_image(path):
     for root, dirs, files in os.walk(path):
         for name in files:
             frame = cv2.imread(os.path.join(root, name))
-            yield(frame, name)
+            yield (frame, name)
     return
 
+
 def denoise_foreground(img, fgmask):
-    img_bw = 255*(fgmask > 5).astype('uint8')
-    mask = img_bw
+
+    img_bw = 255 * (fgmask > 5).astype('uint8')
+    # mask = img_bw
     se0 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 5))
-    se1 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5,7))
-    se2 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (20,20))
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, se0)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, se1)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, se2)
-    mask = np.dstack([mask, mask, mask]) / 255
+    se1 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 7))
+    se2 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (20, 20))
+    mask1 = cv2.morphologyEx(img_bw, cv2.MORPH_CLOSE, se0)
+    mask2 = cv2.morphologyEx(mask1, cv2.MORPH_OPEN, se1)
+    mask3 = cv2.morphologyEx(mask2, cv2.MORPH_CLOSE, se2)
+    mask = np.dstack([mask3, mask3, mask3]) / 255
     # img_dn = img * mask
-    return mask*255
+    # if True:
+        # path = r'C:\Users\dana\Documents\Ido\follow_up_project\benchmark\walking_benchmark\try'
+        # cv2.imwrite(os.path.join(path, "orig.jpg"), img)
+        # mask1 = np.dstack([mask1, mask1, mask1])
+        # mask2 = np.dstack([mask2, mask2, mask2])
+        # mask3 = mask * 255
+        # cv2.imwrite(os.path.join(path, "vmd.jpg"), fgmask)
+        # cv2.imwrite(os.path.join(path, "mask0.jpg"), img_bw)
+        # cv2.imwrite(os.path.join(path, "mask1.jpg"), mask1)
+        # cv2.imwrite(os.path.join(path, "mask2.jpg"), mask2)
+        # cv2.imwrite(os.path.join(path, "mask3.jpg"), mask3)
+    return mask * 255
 
 
 class VMdetector:
-    def __init__(self, class_idx=723, backsub=None, classifier=None):
+    def __init__(self, valid_class_list=None, backsub=None, classifier=None, frame_size=416):
+        if valid_class_list is None:
+            valid_class_list = [723]
         if backsub != None:
             self.backsub = backsub
         else:
             self.backsub = cv2.createBackgroundSubtractorMOG2(history=5, varThreshold=10, detectShadows=True)
         self.denoised_mask = None
-        self.class_idx = class_idx
+        self.valid_class_list = valid_class_list
+        self.classifier = classifier
+        self.frame_size = frame_size
 
-    def apply_image(self, frame):
-        self.cur_frame = frame
+    def apply_image(self, frame, resize=True):
+        if resize:
+            frame, _ = resize_image(frame, self.frame_size)
         self.fgMask = self.backsub.apply(frame, learningRate=0.05)
         return self.fgMask
 
-    def denoise(self):
-        self.denoised_mask = denoise_foreground(self.cur_frame, self.fgMask)
+    def denoise(self, frame, resize=True):
+        if resize:
+            frame, _ = resize_image(frame, self.frame_size)
+        self.denoised_mask = denoise_foreground(frame, self.fgMask)
         return self.denoised_mask
 
-    def detect(self, denoised=True):
+    def filter_detections(self, orig_frame, detections, scale, bb_size=None):
+        detect_bool = False
+        correct_detections = []
+        for det in detections:
+            det = np.array(det)
+            if type(scale) == tuple:
+                det[[0, 2]] = det[[0, 2]] / scale[0]
+                det[[1, 3]] = det[[1, 3]] / scale[1]
+            else:
+                det = (det / scale).astype(np.int)
+            bb_img = orig_frame[det[1]:det[3], det[0]:det[2], :]
+            if bb_size:
+                bb_img = cv2.resize(bb_img, scale)
+            class_idx, class_name, cur_percentage = self.classifier.apply(bb_img)
+            print(class_name)
+            if class_idx in self.valid_class_list:
+                cv2.rectangle(frame, (det[0], det[1]), (det[2], det[3]), (255, 0, 0), 2, 1)  # frame is with BBs
+                detect_bool = True
+            if detect_bool:
+                cv2.rectangle(frame, (det[0], det[1]), (det[2], det[3]), (255, 0, 0), 2, 1)  # frame is with BBs
+                detect_bool = True
+                correct_detections.append(det)
+        return detect_bool, correct_detections
+
+    def detect(self, orig_frame, denoised=True):
+        frame, scale = resize_image(orig_frame, self.frame_size)
+        self.apply_image(frame,  resize=False)
         if not denoised:
             mask = self.fgMask
         else:
+            self.denoise(frame,  resize=False)
             mask = self.denoised_mask
 
         mask = cv2.cvtColor(mask.astype('uint8'), cv2.COLOR_BGR2GRAY)
-        # detections = export_detections(mask)
         detections = export_contour_detection(mask)
+
+        if self.classifier:
+            detect_bool, detections = self.filter_detections(orig_frame, detections, scale)
+            if not detect_bool:
+                detections = []
+
         return detections
 
-    # def filter_detections(self, detections):
-    #     for det in detections:
-    #         bb_img = orig_frame[det[1]:det[3], det[0]:det[2], :]
-    #         # # idxs=(284, 621, 324, 665),(516, 1006, 721, 1083)
-    #         # image = image[621:665, 284:324, :]
-    #         class_idx, class_name, cur_percentage = classifier.apply(bb_img)
-    #         if class_idx == self.class_idx:
-    #             detected_bb = det
-    #             detect_bool = True
-    #             break
+
 
 if __name__ == '__main__':
-
 
     images_path = r"C:\Users\dana\Documents\Ido\follow_up_project\datasets\efi\images\try_set1"
     destinate_frames_path = r"C:\Users\dana\Documents\Ido\follow_up_project\benchmark\2019_08_21_MOG2\try_set1\frames"
     destinate_orig_frames_path = r"C:\Users\dana\Documents\Ido\follow_up_project\benchmark\2019_08_21_MOG2\try_set1\frames_orig"
     dest_path = r"C:\Users\dana\Documents\Ido\follow_up_project\benchmark\2019_08_21_MOG2\try_set1\mask"
 
-
-    method="MOG2"
+    method = "MOG2"
     if method == 'MOG2':
         vm_detector = VMdetector()
         # backSub = cv2.createBackgroundSubtractorMOG2(history=100, varThreshold=300, detectShadows=True)
@@ -84,7 +128,6 @@ if __name__ == '__main__':
     else:
         backSub = cv2.createBackgroundSubtractorKNN()
         vm_detector = VMdetector(backSub)
-
 
     capture = get_image(images_path)
 
@@ -108,10 +151,10 @@ if __name__ == '__main__':
         # frame = cv2.medianBlur(frame, 5)
         # fgMask = cv2.medianBlur(fgMask, 5)
         cv.imwrite(os.path.join(destinate_orig_frames_path, name), frame)
-        cv.imwrite(os.path.join(destinate_frames_path,name), denoised_frame)
-        cv.imwrite(os.path.join(dest_path,name.replace(".jpg", "_mask.jpg")), fgMask)
+        cv.imwrite(os.path.join(destinate_frames_path, name), denoised_frame)
+        cv.imwrite(os.path.join(dest_path, name.replace(".jpg", "_mask.jpg")), fgMask)
         # keyboard = cv.waitKey(30)
         # if keyboard == 'q' or keyboard == 27:
         #     break
     end = time()
-    print("time: ", (end-begin)/100)
+    print("time: ", (end - begin) / 100)

@@ -109,3 +109,15 @@ def auto_str(cls):
 
     cls.__str__ = __str__
     return cls
+
+def resize_image(oriimg, max_size):
+    if type(max_size) == tuple:
+        newX, newY = max_size
+        imgScale = (max_size[0]/ float(newX), max_size/float(newY))
+    else:
+        height, width, depth = oriimg.shape
+        max_dim = max(height, width)
+        imgScale = max_size / max_dim
+        newX, newY = oriimg.shape[1] * imgScale, oriimg.shape[0] * imgScale
+    newimg = cv2.resize(oriimg, (int(newX), int(newY)))
+    return newimg, imgScale

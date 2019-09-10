@@ -4,7 +4,7 @@ from data_structures import SampleData, Label, Prediction, CirclePrediction, Cir
 from utils.fake_generator import generate_fake_preds
 from utils.utils import *
 
-IOU_THRESHOLD = 0.1
+IOU_THRESHOLD = 0.5
 
 
 def parse_labels(labels_path, shape="rect"):
@@ -50,8 +50,9 @@ def parse_preds(preds_path, labels, shape="rect"):
             else:
                 pred = Prediction(int(log[0]), int(log[1]), int(log[2]), int(log[3]), log[4])
                 pred.match_label(labels)
-            if pred.matched_label and not pred.is_dont_care:
-                preds.append(pred)
+            if pred.matched_label:
+                if shape != 'multi' or not pred.is_dont_care:
+                    preds.append(pred)
     return preds, time
 
 
@@ -234,11 +235,11 @@ if __name__ == "__main__":
     project_root = 'C:\\Users\\dana\\Documents\\Ido\\follow_up_project'
     data_root = os.path.join(project_root, 'datasets', 'walking_benchmark')
     images_root = os.path.join(data_root, 'images')
-    labels_root = os.path.join(data_root, 'labels_with_dont_care')
-    results_root = os.path.join(project_root, 'benchmark', 'walking_benchmark', '2019_09_08_yolo_baseline', 'results')
-    images_root = r'C:\\Users\dana\Documents\Ido\follow_up_project\datasets\walking_benchmark\filenames_from10.txt'
+    labels_root = os.path.join(data_root, 'labels')
+    results_root = os.path.join(project_root, 'benchmark', 'walking_benchmark', '2019_09_05_multitracker', 'results')
+    images_root = r'C:\\Users\dana\Documents\Ido\follow_up_project\datasets\walking_benchmark\filenames_from13.txt'
 
-    bm = Benchmark("experiment", fake=False, persist=False, shape='multi')
+    bm = Benchmark("experiment", fake=False, persist=False, shape='rect')
     # bm = Benchmark("experiment")
     bm.parse_experiment_results(images_root, labels_root, results_root)
     bm.calc_stats()
