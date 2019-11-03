@@ -88,7 +88,7 @@ def analyze_frame(vm_detector, catched, multy_tracker, detector_counter, timer_a
             if tracker_id == -1:
                 catched = False
 
-    return detection_bbs
+    return detection_bbs, catched
 
 def operate_tracker(tracker, detected_bb, catched, detector_counter):
     tracker_oks, bboxs = tracker.update(frame)
@@ -144,8 +144,8 @@ if __name__ == '__main__':
     # destinate_frames_path = r"C:\Users\dana\Documents\Ido\follow_up_project\benchmark\2019_08_21_MOG2\try_set1\pipe"
     p = argparse.ArgumentParser()
     p.add_argument('--images_path',  type=str, default= r'C:\Users\dana\Documents\Ido\follow_up_project\datasets\walking_benchmark\images')
-    p.add_argument('--destinate_frames_path',  type=str, default=r'C:\Users\dana\Documents\Ido\follow_up_project\benchmark\walking_benchmark\2019_09_08_test')
-    p.add_argument('--destinate_frames_path2',  type=str, default=r"C:\Users\dana\Documents\Ido\follow_up_project\benchmark\walking_benchmark\2019_09_08_test2")
+    p.add_argument('--destinate_frames_path',  type=str, default=r'C:\Users\dana\Documents\Ido\follow_up_project\benchmark\walking_benchmark\2019_09_08_testb')
+    p.add_argument('--destinate_frames_path2',  type=str, default=r"C:\Users\dana\Documents\Ido\follow_up_project\benchmark\walking_benchmark\2019_09_08_test2b")
     p.add_argument('--model_type', type=str, default='torchvision')
     args = p.parse_args()
 
@@ -192,7 +192,7 @@ if __name__ == '__main__':
         # run over current frame
         if i < detector_frames_init:
             vm_detector.apply_image(frame)
-        detection_bbs = analyze_frame(vm_detector, catched, multy_tracker, detector_counter, timer_analyzer, orig_frame)
+        detection_bbs, catched = analyze_frame(vm_detector, catched, multy_tracker, detector_counter, timer_analyzer, orig_frame)
 
 
         # analyze detection
